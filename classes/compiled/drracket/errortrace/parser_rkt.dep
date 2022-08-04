@@ -1,0 +1,1 @@
+("7.2" racket ("633796aed192c375089752269d296e4f78f94741" . "8f1823f599f1a0db254b92a976c5ec70a9c1ec74") (collects #"dcc019" #"classes" #"ast.rkt") (collects #"dcc019" #"classes" #"lexer.rkt") (collects #"errortrace" #"errortrace-key.rkt") (collects #"parser-tools" #"yacc.rkt") (collects #"racket" #"main.rkt") (collects #"racket" #"runtime-config.rkt"))

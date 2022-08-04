@@ -49,21 +49,21 @@
                                   (apply-method              ; e acha o método (cadr exp) do objeto super com os argumentos args e o objeto obj
                                     (find-method (apply-env Δ '%super) (cadr exp))
                                     obj args))]
-    [(ast:send obj-exp method-name rands)
-              (let ([args (values-of-exps rands Δ)]
+    [(ast:send obj-exp method-name rands) 
+              (let ([args (values-of-exps rands Δ)] ; send retira os argumentos e o objeto
                     [obj (value-of obj-exp Δ)])
-                  (apply-method
+                  (apply-method                              ; e em seguida aplica o método (caddr exp) no objeto obj com os argumentos args
                     (find-method (object-class-name obj) method-name)
                         obj
                         args))]
-    [(ast:new class-name rands) 
-              (let ([args (values-of-exps rands Δ)]   ; new cria um novo objeto
-                    [obj (new-object class-name)])          ; usando new-object
-              (apply-method 
-                (find-method (object-class-name obj) 'initialize)                                                   ; e aplica o método
-                    obj
-                    args)
-                obj)]
+    ;;; [(ast:new class-name rands) 
+    ;;;           (let ([args (values-of-exps rands Δ)]   ; new cria um novo objeto
+    ;;;                 [obj (new-object class-name)])          ; usando new-object
+    ;;;           (apply-method 
+    ;;;             (find-method (object-class-name obj) 'initialize)                                                   ; e aplica o método
+    ;;;                 obj
+    ;;;                 args)
+    ;;;             obj)]
     ;-------------------------------------------------------------------------
     [e (raise-user-error "unimplemented-construction: " e)]
     ))
@@ -115,17 +115,17 @@
 ;;;   (proc val #f))
 
 ;;; (struct thunk (env exp))
-(struct object (class-name fields)) 
+;;; (struct object (class-name fields)) 
 
-; new-object :: ClassName -> Obj
-(define new-object      ; Cria um objeto da classe class-name
-  (lambda (name)
-    (object             ; Cria um objeto
-      name        ; nome da classe
-      (map
-       (lambda (field-name) ; Campos de dados. cria uma nova referência na memória com o nome dos campos
-         (newref field-name));(list 'uninitialized-field field-name)))
-       (decl-fields (lookup-class decl-name)))))) ; Pega os campos da classe com o nome class-name, encontrada com lookup-class
+;;; ; new-object :: ClassName -> Obj
+;;; (define new-object      ; Cria um objeto da classe class-name
+;;;   (lambda (name)
+;;;     (object             ; Cria um objeto
+;;;       name        ; nome da classe
+;;;       (map
+;;;        (lambda (field-name) ; Campos de dados. cria uma nova referência na memória com o nome dos campos
+;;;          (newref field-name));(list 'uninitialized-field field-name)))
+;;;        (decl-fields (lookup-class decl-name)))))) ; Pega os campos da classe com o nome class-name, encontrada com lookup-class
 
 ; apply-method :: Method x Obj x ListOf(ExpVal) -> ExpVal
 (define (apply-method m self args) ; Função que aplica o método m do objeto self com os argumentos args, e retorna o valor

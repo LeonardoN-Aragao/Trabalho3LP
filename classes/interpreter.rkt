@@ -223,7 +223,8 @@
                                 (merge-method-envs ; Faz um merge no ambiente de métodos da classe atual com a superior
                                  (ast:decl-methods (lookup-class super-name)) ; Obtém o ambiente de métodoss da classe superior
                                  (method-decls->method-env ; Obtém o ambiente de métodos declarado nesta declaração de classe
-                                  m-decls super-name))))))))
+                                  m-decls super-name))))
+                                  ))))
 
 ; add-to-class-env! :: ClassName x Class -> ???
 (define add-to-class-env!     ; Adiciona a classe class de nome class-name no ambiente the-class-env

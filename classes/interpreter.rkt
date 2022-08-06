@@ -153,7 +153,7 @@
 (define (apply-proc-ref proc val)
   (proc val #f))
 
-(struct thunk (env exp))
+;(struct thunk (env exp))
 
 ; -------------------------------- Implementação das estruturas e funções da linguagem CLASSES --------------------------------------
 ; Seguindo estratégia apresentada no Capítulo 9 do livro "Essentials of Programming Languages", 3ra edição.
@@ -200,7 +200,7 @@
 ; initialize-class-env! :: Listof(ClassDecl) -> ???
 (define initialize-class-env! ; inicializa o ambiente de classes the-class-env com os objetos correspondentes às declarações de classe do programa
   (lambda (c-decls)
-    (printf "\n")
+    (printf "\n Tentando inicializar classe\n")
     (display c-decls)
     (set! the-class-env
       (list

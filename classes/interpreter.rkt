@@ -140,7 +140,6 @@
 #;(define (apply-proc proc val)
   (proc val))
 
-
 ; call-by-reference
 ;;; (define (proc-val var exp Δ)
 ;;;   (lambda (val flag)
@@ -204,8 +203,12 @@
     (display c-decls)
     (set! the-class-env
       (list
-        (list 'object (ast:decl '() '() '() '())))) ; Inicializa o ambiente de classes com um objeto
-    (initialize-class-decl! c-decls))) ; para cada classe declarada no programa
+        (list 'object (ast:decl  #f #f  '() '())))) ; Inicializa o ambiente de classes com um objeto
+    (initialize-class-decl! c-decls)
+    (printf "\nClasses adicionadas: ")
+    (display the-class-env)
+    (printf "\n")
+    )) ; para cada classe declarada no programa
 
 ; my initialize-class-decl!
 (define initialize-class-decl! ; Inicializa o ambiente the-class-env com cada uma das classes declaradas no programa, passadas pela função initialize-class-env!
@@ -237,7 +240,9 @@
 ; lookup-class :: ClassName -> Class
 (define lookup-class    ; Procura e retorna (se existir) a classe de nome name no ambiente the-class-env
   (lambda (name)
-    (printf "\n name \n")
+    (printf "\nClasses adicionadas: ")
+    (display the-class-env)
+    (printf "\n lookup name \n")
     (display name)
     (printf "\n")
     (let ((maybe-pair (assq name the-class-env)))
@@ -316,13 +321,16 @@
 ;------------------------------------------------------------------------------------------------------------------------------------------------
 ; Exemplo 1: resultado = 33
 (define t1 '((
-              (class c1 (object () ((method initialize () 1)
-                                   (method m1 () (send self m2()))
-                                   (method m2 () 13))))
-             (class c2 (c1 () ((method m1 () 22)
-                              (method m2 () 23)
-                              (method m3 () (super m1()))
-                              )))
+              (class c1 (object () (
+                (method initialize () 1)
+                (method m1 () (send self m2()))
+                (method m2 () 13)
+            )))
+              (class c2 (c1 () (
+                (method m1 () 22)
+                (method m2 () 23)
+                (method m3 () (super m1()))
+            )))
             )
             (let o = new c1()
              (display o))

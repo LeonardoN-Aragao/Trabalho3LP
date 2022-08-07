@@ -95,7 +95,9 @@
     (empty-store)        ; incializa o store
     (let ([class-decls (car prog)]   ; retira do programa a primeira parte, que são as declarações de classe
           [body (cadr prog)])     ; segunda parte, que é o corpo do programa
-    (for-each initialize-class-env! class-decls) ; inicializa o ambiente de classes the-class-env com as classes declaradas
+    (initialize-class-env! class-decls) ; inicializa o ambiente de classes the-class com as classes declaradas
+    (printf "\ncriou as classe\n")
+    (display body)
     (value-of body the-class-env)
   )))
 
@@ -193,25 +195,25 @@
 
 
 ; ClassEnv = Listof(List(ClassName, Class))
-;the-class-env :: ClassEnv
+;the-class :: ClassEnv
 (define the-class-env '()) ;object object null)) ; Ambiente de classe vazio, que será inicializado pela função initialize-class-env! com as classes declaradas no programa
 
 ; initialize-class-env! :: Listof(ClassDecl) -> ???
-(define initialize-class-env! ; inicializa o ambiente de classes the-class-env com os objetos correspondentes às declarações de classe do programa
+(define initialize-class-env! ; inicializa o ambiente de classes the-class com os objetos correspondentes às declarações de classe do programa
   (lambda (c-decls)
-    (printf "\n Tentando inicializar classe\n")
-    (display c-decls)
+    ;(printf "\n Tentando inicializar classe\n")
+    ;(display c-decls)
     (set! the-class-env
       (list
         (list 'object (ast:decl  #f #f  '() '())))) ; Inicializa o ambiente de classes com um objeto
-    (initialize-class-decl! c-decls)
-    (printf "\nClasses adicionadas: ")
-    (display the-class-env)
-    (printf "\n")
+    (for-each initialize-class-decl! c-decls)
+    ;(printf "\nClasses adicionadas: ")
+    ;(display the-class-env)
+    ;(printf "\n")
     )) ; para cada classe declarada no programa
 
 ; my initialize-class-decl!
-(define initialize-class-decl! ; Inicializa o ambiente the-class-env com cada uma das classes declaradas no programa, passadas pela função initialize-class-env!
+(define initialize-class-decl! ; Inicializa o ambiente the-class com cada uma das classes declaradas no programa, passadas pela função initialize-class-env!
   (lambda (c-decl)
     (let ([class-name (cadr c-decl)] ; Obtém as informações relevantes da declaração de classes
           [super-name (car (caddr c-decl))]
@@ -230,24 +232,24 @@
                                   ))))
 
 ; add-to-class-env! :: ClassName x Class -> ???
-(define add-to-class-env!     ; Adiciona a classe class de nome class-name no ambiente the-class-env
+(define add-to-class-env!     ; Adiciona a classe class de nome class-name no ambiente the-class
   (lambda (class-name class)
-    (set! the-class-env       ; usando a função set! O ambiente the-class-env vai possuir listas com dois elementos, o primeiro sendo o
+    (set! the-class-env       ; usando a função set! O ambiente the-class vai possuir listas com dois elementos, o primeiro sendo o
           (cons               ; nome da classe, o segundo a classe em si
            (list class-name class)
            the-class-env))))
 
 ; lookup-class :: ClassName -> Class
-(define lookup-class    ; Procura e retorna (se existir) a classe de nome name no ambiente the-class-env
+(define lookup-class    ; Procura e retorna (se existir) a classe de nome name no ambiente the-class
   (lambda (name)
-    (printf "\nClasses adicionadas: ")
-    (display the-class-env)
-    (printf "\n lookup name \n")
-    (display name)
-    (printf "\n")
+    ;(printf "\nClasses adicionadas: ")
+    ;(display the-class-env)
+    ;(printf "\n lookup name \n")
+    ;(display name)
+    ;(printf "\n")
     (let ((maybe-pair (assq name the-class-env)))
-    (printf "maybe-pair\n")
-    (display maybe-pair)
+    ;(printf "maybe-pair\n")
+    ;(display maybe-pair)
     (if maybe-pair (cadr maybe-pair)
         (display "\nClasse desconhecida\n"))
 )))
@@ -332,7 +334,7 @@
                 (method m3 () (super m1()))
             )))
             )
-            (let o = new c1()
+            ((let o = new c1())
              (display o))
 ))
             ;;;  (class c3 (c2 () ((method m1 () 32)

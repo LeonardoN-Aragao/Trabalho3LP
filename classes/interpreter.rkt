@@ -27,6 +27,9 @@
 ; value-of :: Exp -> ExpVal
     ;[(ast:super (ast:var x) e) (apply-env x e %super)]
 (define (value-of exp Δ)
+  (printf "\nvalue-of\n")
+  (display exp)
+  (display Δ)
   (match exp
     [(ast:int n) n]
     [(ast:dif e1 e2) (- (value-of e1 Δ) (value-of e2 Δ))]
@@ -80,14 +83,7 @@
           (if (equal? exp 'self) (apply-env Δ '%self) ; se for self
               (apply-env Δ exp))))                  ; senão, é identificador
 
-;;; (define value-of-program prog)
-;;;   (display prog)
-;;;   (empty-store)
-;;;   ; you must collect all the classes declared and building its respectively environment
-;;;   ; execute the prog expression in the correct environment
-;;;   (value-of prog init-env))
-
-  ; value-of-program :: Program -> ExpVal
+; value-of-program :: Program -> ExpVal
 (define value-of-program ; Função principal, chamada para avaliar o valor de um programa.
   (lambda (prog)
     (display prog)
@@ -201,8 +197,8 @@
 ; initialize-class-env! :: Listof(ClassDecl) -> ???
 (define initialize-class-env! ; inicializa o ambiente de classes the-class com os objetos correspondentes às declarações de classe do programa
   (lambda (c-decls)
-    ;(printf "\n Tentando inicializar classe\n")
-    ;(display c-decls)
+    (printf "\n Tentando inicializar classe\n")
+    (display c-decls)
     (set! the-class-env
       (list
         (list 'object (ast:decl  #f #f  '() '())))) ; Inicializa o ambiente de classes com um objeto
@@ -215,10 +211,22 @@
 ; my initialize-class-decl!
 (define initialize-class-decl! ; Inicializa o ambiente the-class com cada uma das classes declaradas no programa, passadas pela função initialize-class-env!
   (lambda (c-decl)
+    (printf "\n Inicialize")
+    (display c-decl)
+    (printf "\n\n")
+    (display (cdr (cdr (cdr (cdr c-decl)))))
+    (printf "\nassq\n")
+    (teste (list (car (cdr (cdr (cdr (cdr c-decl)))))  (car (cdr (cdr (cdr (cdr (cdr c-decl))))))))
+    ;(get-list (member 'f (list "field")))
     (let ([class-name (cadr c-decl)] ; Obtém as informações relevantes da declaração de classes
-          [super-name (car (caddr c-decl))]
-          [field-names (cadr (caddr c-decl))]
-          [m-decls (caddr (caddr c-decl))])
+          [super-name (cadddr c-decl)]
+          [list-field (cdr (cdr (cdr (cdr c-decl))))]
+          [field-names (car c-decl)]
+          [m-decls (car (cdr c-decl))])
+        (printf "\n \n")
+        (display class-name)
+        (display super-name)
+        (display field-names)
        (let ([field-names (append-field-names ; Obtém os nomes dos campos resultantes da concatenação dos campos da classe atual com os da superior
                             (ast:decl-fields (lookup-class super-name))
                             field-names)])
@@ -230,6 +238,38 @@
                                  (method-decls->method-env ; Obtém o ambiente de métodos declarado nesta declaração de classe
                                   m-decls super-name))))
                                   ))))
+
+(struct field (name)) 
+(define teste
+  (lambda (p)
+      (match p 
+      [(field (ast:var name)) (print "caiu aqui")]
+      [(ast:method name params body) (print "caiu no segundo")]
+      )
+  )
+)
+
+
+(define (append l1 l2)
+  (cond
+    ((null? l1) l2)
+    (else (cons (car l1) (append (cdr l1) l2)))))
+
+(define get-list
+  (lambda (list)
+    (printf "\noi\n")
+    (display list)
+  )
+)
+
+;;; (define find-fields
+;;;   (lambda (list)
+;;;     (for-each se for igual adiciona list)
+;;;   )
+;;; )
+
+
+
 
 ; add-to-class-env! :: ClassName x Class -> ???
 (define add-to-class-env!     ; Adiciona a classe class de nome class-name no ambiente the-class
@@ -311,32 +351,53 @@
     (lambda (v)
       (or (not v) (pred v)))))
 
-; value-of-program :: Program -> ExpVal
-;;; (define value-of-program ; Função principal, chamada para avaliar o valor de um programa.
-;;;   (lambda (prog)
-;;;     (empty-store)        ; incializa o store
-;;;     (let ([class-decls (car prog)]   ; retira do programa a primeira parte, que são as declarações de classe
-;;;           [body (cadr prog)])        ; segunda parte, que é o corpo do programa
-;;;       (initialize-class-env! class-decls)   ; inicializa o ambiente de classes the-class-env com as classes declaradas
-;;;         (value-of body the-class-env))))  ; pega o valor do corpo do programa no ambiente de classes recém inicializado
-
 ;------------------------------------------------------------------------------------------------------------------------------------------------
 ; Exemplo 1: resultado = 33
-(define t1 '((
-              (class c1 (object () (
-                (method initialize () 1)
-                (method m1 () (send self m2()))
-                (method m2 () 13)
-            )))
-              (class c2 (c1 () (
-                (method m1 () 22)
-                (method m2 () 23)
-                (method m3 () (super m1()))
-            )))
-            )
-            ((let o = new c1())
-             (display o))
-))
+;;; (define t1 '((
+;;;               class c1 extends object () 
+;;;                 method initialize () 1
+;;;                 method m1 () (send self m2())
+;;;                 method m2 () 13
+;;;               class c2 extends c1 () 
+;;;                 method m1 () 22
+;;;                 method m2 () 23
+;;;                 method m3 () (super m1())
+;;;             )
+;;;             (let t = 0 new c1())
+;;; ))
+
+(define t1 '(((class c1 extends object
+  field i
+  field j
+
+  method initialize (x)
+    begin
+      set i = x;
+      set j = -(0,x)
+    end
+
+  method countup (d)
+    begin
+      set i = -(i, -(0,d));
+      set j = -(j,d)
+    end
+
+  method geti() i
+
+  method getj() j
+  ))
+
+(let t1 = 0
+in let t2 = 0
+   in let o1 = new c1(3)
+      in begin
+        set t1 = send o1 geti();
+        send o1 countup (2);
+        set t2 = send o1 geti();
+        -(t1,t2)
+       end)))
+
+
             ;;;  (class c3 (c2 () ((method m1 () 32)
             ;;;                   (method m2 () 33)))))
             ;;;  (new c1 ()) ))

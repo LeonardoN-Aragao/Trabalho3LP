@@ -1,5 +1,17 @@
 #lang dcc019/classes
 
+principal
+
+ procura os metodo (func list)
+
+
+func (list)
+ if(!string=? (car list) "method")
+   append list
+   func (cdr list)
+ else
+   (car list)
+
 (zero? 5 #t #f)
 ;class c1 extends object
 ;  field i

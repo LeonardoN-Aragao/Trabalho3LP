@@ -68,7 +68,7 @@
                             (let ([args (values-of-exps (caddr exp) Δ)]   ; new cria um novo objeto
                                   [obj (cadr exp)])
                                 (display args)
-                                (display obj)          ; usando new-object
+                                (display obj)         
                               (let ([this-meth (find-method (object-class-name obj) 'initialize)])   ; acha o método initialize do objeto obj
                                 ;((display (method? this-meth)) (display this-meth) (display "\n")
                                 (apply-method                                                        ; e aplica o método
@@ -78,24 +78,34 @@
                               obj)] ; retornando obj
     ;-------------------------------------------------------------------------
     [e (raise-user-error "unimplemented-construction: " e)]
-    )
-    (if (number? exp) exp                          ; Se Expr -> Number            
-          (if (equal? exp 'self) (apply-env Δ '%self) ; se for self
-              (apply-env Δ exp))))                  ; senão, é identificador
+    ))
+    ;;; (if (number? exp) exp                          ; Se Expr -> Number            
+    ;;;       (if (equal? exp 'self) (apply-env Δ '%self) ; se for self
+    ;;;           (apply-env Δ exp))))                  ; senão, é identificador
 
 ; value-of-program :: Program -> ExpVal
 (define value-of-program ; Função principal, chamada para avaliar o valor de um programa.
   (lambda (prog)
-    (display prog)
+    (match-define  
+      (ast:prog decls exp) prog)
+    (printf "\n")
+    (display decls)
+    (printf "\n")
+    (match-define 
+      (ast:decl name super fields methods) decls)
+    (display name) 
+    (printf "\n")
+    (printf "\n")
+    (display exp)
     (printf "\n")
     (empty-store)        ; incializa o store
-    (let ([class-decls (car prog)]   ; retira do programa a primeira parte, que são as declarações de classe
-          [body (cadr prog)])     ; segunda parte, que é o corpo do programa
-    (initialize-class-env! class-decls) ; inicializa o ambiente de classes the-class com as classes declaradas
+    ;(let ([class-decls (car prog)]   ; retira do programa a primeira parte, que são as declarações de classe
+    ;      [body (cadr prog)])     ; segunda parte, que é o corpo do programa
+    ;(initialize-class-env! class-decls) ; inicializa o ambiente de classes the-class com as classes declaradas
     (printf "\ncriou as classe\n")
-    (display body)
-    (value-of body the-class-env)
-  )))
+    ;(display body)
+    ;(value-of body the-class-env)
+  ))
 
 
 ; Comportamento de uma lista de expressões, podendo ser vazia. Função auxiliar
@@ -166,14 +176,14 @@
 ;(struct method (vars body super-name fields))
 
 ; new-object :: ClassName -> Obj
-(define new-object      ; Cria um objeto da classe class-name
-  (lambda (class-name)
-    (object             ; Cria um objeto
-      class-name        ; nome da classe
-      (map
-       (lambda (field-name) ; Campos de dados. cria uma nova referência na memória com o nome dos campos
-         (newref field-name));(list 'uninitialized-field field-name)))
-       (ast:decl-fields (lookup-class class-name)))))) ; Pega os campos da classe com o nome class-name, encontrada com lookup-class
+;;; (define new-object      ; Cria um objeto da classe class-name
+;;;   (lambda (class-name)
+;;;     (object             ; Cria um objeto
+;;;       class-name        ; nome da classe
+;;;       (map
+;;;        (lambda (field-name) ; Campos de dados. cria uma nova referência na memória com o nome dos campos
+;;;          (newref field-name));(list 'uninitialized-field field-name)))
+;;;        (ast:decl-fields (lookup-class class-name)))))) ; Pega os campos da classe com o nome class-name, encontrada com lookup-class
 
 ; apply-method :: Method x Obj x ListOf(ExpVal) -> ExpVal
 (define (apply-method m self args) ; Função que aplica o método m do objeto self com os argumentos args, e retorna o valor
@@ -211,13 +221,6 @@
 ; my initialize-class-decl!
 (define initialize-class-decl! ; Inicializa o ambiente the-class com cada uma das classes declaradas no programa, passadas pela função initialize-class-env!
   (lambda (c-decl)
-    (printf "\n Inicialize")
-    (display c-decl)
-    (printf "\n\n")
-    (display (cdr (cdr (cdr (cdr c-decl)))))
-    (printf "\nassq\n")
-    (teste (list (car (cdr (cdr (cdr (cdr c-decl)))))  (car (cdr (cdr (cdr (cdr (cdr c-decl))))))))
-    ;(get-list (member 'f (list "field")))
     (let ([class-name (cadr c-decl)] ; Obtém as informações relevantes da declaração de classes
           [super-name (cadddr c-decl)]
           [list-field (cdr (cdr (cdr (cdr c-decl))))]
@@ -239,28 +242,28 @@
                                   m-decls super-name))))
                                   ))))
 
-(struct field (name)) 
-(define teste
-  (lambda (p)
-      (match p 
-      [(field (ast:var name)) (print "caiu aqui")]
-      [(ast:method name params body) (print "caiu no segundo")]
-      )
-  )
-)
+;;; (struct field (name)) 
+;;; (define teste
+;;;   (lambda (p)
+;;;       (match p 
+;;;       [(field (ast:var name)) (print "caiu aqui")]
+;;;       [(ast:method name params body) (print "caiu no segundo")]
+;;;       )
+;;;   )
+;;; )
 
 
-(define (append l1 l2)
-  (cond
-    ((null? l1) l2)
-    (else (cons (car l1) (append (cdr l1) l2)))))
+;;; (define (append l1 l2)
+;;;   (cond
+;;;     ((null? l1) l2)
+;;;     (else (cons (car l1) (append (cdr l1) l2)))))
 
-(define get-list
-  (lambda (list)
-    (printf "\noi\n")
-    (display list)
-  )
-)
+;;; (define get-list
+;;;   (lambda (list)
+;;;     (printf "\noi\n")
+;;;     (display list)
+;;;   )
+;)
 
 ;;; (define find-fields
 ;;;   (lambda (list)
@@ -345,11 +348,11 @@
   (lambda (super-m-env new-m-env) ; Simplesmente concatena (append) o novo ambiente com o antigo (da classe superior). Dessa maneira, os métodos da classe nova, que estende a superior
     (append new-m-env super-m-env))) ; ficam na frente. Quando a função find-method procura um método, vai pegar usando a função assq o primeiro da lista, ou seja, o da classe mais
                                      ; baixa na hierarquia (o mais novo). Dessa forma lida-se com duas classes com métodos de mesmo nome, uma das quais estende a outra.
-; maybe :: 
-(define maybe  ; Função auxiliar maybe
-  (lambda (pred)
-    (lambda (v)
-      (or (not v) (pred v)))))
+;;; ; maybe :: 
+;;; (define maybe  ; Função auxiliar maybe
+;;;   (lambda (pred)
+;;;     (lambda (v)
+;;;       (or (not v) (pred v)))))
 
 ;------------------------------------------------------------------------------------------------------------------------------------------------
 ; Exemplo 1: resultado = 33
@@ -366,7 +369,7 @@
 ;;;             (let t = 0 new c1())
 ;;; ))
 
-(define t1 '(((class c1 extends object
+(define t1 '(class c1 extends object
   field i
   field j
 
@@ -385,9 +388,9 @@
   method geti() i
 
   method getj() j
-  ))
+  
 
-(let t1 = 0
+let t1 = 0
 in let t2 = 0
    in let o1 = new c1(3)
       in begin
@@ -395,7 +398,7 @@ in let t2 = 0
         send o1 countup (2);
         set t2 = send o1 geti();
         -(t1,t2)
-       end)))
+       end))
 
 
             ;;;  (class c3 (c2 () ((method m1 () 32)
@@ -404,4 +407,4 @@ in let t2 = 0
             ;(send (var o3) m3 ()))))
 
 ; Valor dos exemplos
-(value-of-program t1)
+;(value-of-program t1)

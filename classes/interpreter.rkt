@@ -91,22 +91,24 @@
     (printf "\n")
     (display decls)
     (printf "\n")
-    (match-define 
-      (ast:decl name super fields methods) decls)
-    (display name) 
-    (printf "\n")
-    (printf "\n")
-    (display exp)
     (printf "\n")
     (empty-store)        ; incializa o store
-    ;(let ([class-decls (car prog)]   ; retira do programa a primeira parte, que são as declarações de classe
-    ;      [body (cadr prog)])     ; segunda parte, que é o corpo do programa
-    ;(initialize-class-env! class-decls) ; inicializa o ambiente de classes the-class com as classes declaradas
+    (initialize-class-env!) ; inicializa o ambiente de classes the-class-env
+    (for-each teste decls)
     (printf "\ncriou as classe\n")
-    ;(display body)
-    ;(value-of body the-class-env)
+    ;(display exp)
+    ;(value-of exp the-class-env)
   ))
 
+
+(define teste 
+  (lambda decls
+    (printf "\n\n")
+    (display decls)
+    (match (car decls)
+      [(ast:decl (ast:var name) (ast:var super) fields methods) (initialize-class-decl! name super fields methods)])
+  )
+)
 
 ; Comportamento de uma lista de expressões, podendo ser vazia. Função auxiliar
 (define values-of-exps
@@ -206,41 +208,29 @@
 
 ; initialize-class-env! :: Listof(ClassDecl) -> ???
 (define initialize-class-env! ; inicializa o ambiente de classes the-class com os objetos correspondentes às declarações de classe do programa
-  (lambda (c-decls)
+  (lambda ()
     (printf "\n Tentando inicializar classe\n")
-    (display c-decls)
     (set! the-class-env
       (list
         (list 'object (ast:decl  #f #f  '() '())))) ; Inicializa o ambiente de classes com um objeto
-    (for-each initialize-class-decl! c-decls)
-    ;(printf "\nClasses adicionadas: ")
-    ;(display the-class-env)
-    ;(printf "\n")
-    )) ; para cada classe declarada no programa
+  )
+)
 
 ; my initialize-class-decl!
 (define initialize-class-decl! ; Inicializa o ambiente the-class com cada uma das classes declaradas no programa, passadas pela função initialize-class-env!
-  (lambda (c-decl)
-    (let ([class-name (cadr c-decl)] ; Obtém as informações relevantes da declaração de classes
-          [super-name (cadddr c-decl)]
-          [list-field (cdr (cdr (cdr (cdr c-decl))))]
-          [field-names (car c-decl)]
-          [m-decls (car (cdr c-decl))])
-        (printf "\n \n")
-        (display class-name)
-        (display super-name)
-        (display field-names)
-       (let ([field-names (append-field-names ; Obtém os nomes dos campos resultantes da concatenação dos campos da classe atual com os da superior
-                            (ast:decl-fields (lookup-class super-name))
-                            field-names)])
-                      (add-to-class-env! ; Adiciona a classe com nome class-name e dados obtidos acima no ambiente the-class-env
-                       class-name
-                       (ast:decl class-name super-name field-names
-                                (merge-method-envs ; Faz um merge no ambiente de métodos da classe atual com a superior
-                                 (ast:decl-methods (lookup-class super-name)) ; Obtém o ambiente de métodoss da classe superior
-                                 (method-decls->method-env ; Obtém o ambiente de métodos declarado nesta declaração de classe
-                                  m-decls super-name))))
-                                  ))))
+  (lambda (class-name super-name field-names m-decls)
+    (let ([field-names 
+            (append-field-names ; Obtém os nomes dos campos resultantes da concatenação dos campos da classe atual com os da superior
+              (ast:decl-fields (lookup-class super-name))
+              field-names)])
+          (add-to-class-env! ; Adiciona a classe com nome class-name e dados obtidos acima no ambiente the-class-env
+            class-name
+            (ast:decl class-name super-name field-names
+              (merge-method-envs ; Faz um merge no ambiente de métodos da classe atual com a superior
+                (ast:decl-methods (lookup-class super-name)) ; Obtém o ambiente de métodoss da classe superior
+                (method-decls->method-env ; Obtém o ambiente de métodos declarado nesta declaração de classe
+                m-decls super-name))))
+                )))
 
 ;;; (struct field (name)) 
 ;;; (define teste
@@ -285,14 +275,12 @@
 ; lookup-class :: ClassName -> Class
 (define lookup-class    ; Procura e retorna (se existir) a classe de nome name no ambiente the-class
   (lambda (name)
-    ;(printf "\nClasses adicionadas: ")
-    ;(display the-class-env)
-    ;(printf "\n lookup name \n")
-    ;(display name)
-    ;(printf "\n")
+    (printf "\nClasses adicionadas: ")
+    (display the-class-env)
+    (printf "\n lookup name \n")
+    (display name)
+    (printf "\n")
     (let ((maybe-pair (assq name the-class-env)))
-    ;(printf "maybe-pair\n")
-    ;(display maybe-pair)
     (if maybe-pair (cadr maybe-pair)
         (display "\nClasse desconhecida\n"))
 )))

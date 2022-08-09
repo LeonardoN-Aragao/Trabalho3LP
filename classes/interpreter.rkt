@@ -62,20 +62,14 @@
                               (find-method (apply-env Δ '%super) (cadr exp))
                               obj                                      ; com os argumentos args e o objeto obj
                               args))]
-    [(ast:new class-name rands)  
-                            (printf "oi")
-                            (display class-name rands)
-                            (let ([args (values-of-exps (caddr exp) Δ)]   ; new cria um novo objeto
-                                  [obj (cadr exp)])
-                                (display args)
-                                (display obj)         
-                              (let ([this-meth (find-method (object-class-name obj) 'initialize)])   ; acha o método initialize do objeto obj
-                                ;((display (method? this-meth)) (display this-meth) (display "\n")
-                                (apply-method                                                        ; e aplica o método
-                                  this-meth
-                                  obj
-                                  args))
-                              obj)] ; retornando obj
+    ;;; [(ast:new class-name args)
+    ;;;                         (let ([args (values-of-exps args Δ)])   ; new cria um novo objeto      
+    ;;;                           (let ([this-meth (find-method (object-class-name obj) 'initialize)])   ; acha o método initialize do objeto obj
+    ;;;                             (apply-method                                                        ; e aplica o método
+    ;;;                               this-meth
+    ;;;                               obj
+    ;;;                               args))
+    ;;;                           obj)] ; retornando obj
     ;-------------------------------------------------------------------------
     [e (raise-user-error "unimplemented-construction: " e)]
     ))
@@ -93,7 +87,7 @@
     (printf "\n")
     (printf "\n")
     (empty-store)        ; incializa o store
-    (initialize-class-env!) ; inicializa o ambiente de classes the-class-env
+    (initialize-class-env) ; inicializa o ambiente com object no the-class-env
     (for-each teste decls)
     (printf "\ncriou as classe\n")
     ;(display exp)
@@ -103,9 +97,9 @@
 
 (define teste 
   (lambda decls
-    (printf "\n\n")
+    (printf "\n\n") 
     (display decls)
-    (match (car decls)
+    (match (car decls) ;map?
       [(ast:decl (ast:var name) (ast:var super) fields methods) (initialize-class-decl! name super fields methods)])
   )
 )
@@ -150,32 +144,14 @@
 #;(define (apply-proc proc val)
   (proc val))
 
-; call-by-reference
-;;; (define (proc-val var exp Δ)
-;;;   (lambda (val flag)
-;;;     (if flag (value-of exp (extend-env var (newref val) Δ))
-;;;         (value-of exp (extend-env var val Δ)))))
-
-;;; (define (apply-proc proc val)
-;;;   (proc val #t))
-
 (define (apply-proc-ref proc val)
   (proc val #f))
-
-;(struct thunk (env exp))
 
 ; -------------------------------- Implementação das estruturas e funções da linguagem CLASSES --------------------------------------
 ; Seguindo estratégia apresentada no Capítulo 9 do livro "Essentials of Programming Languages", 3ra edição.
 
-; Tipo de dados class, que representa uma classe com um nome, um nome da classe superior, campos de dados, e um ambiente de métodos
-;(struct class (class-name super-name fields method-env)) 
-
 ; Tipo de dados object, que representa um objeto, que é uma instância de uma classe. Possui nome da classe e campos.
 (struct object (class-name fields)) 
-
-; Tipo de dados method, que representa um método. Possui variáveis, um corpo a ser executado quando o método é chamado,
-; um nome da classe que possui o médoto, e campos de dados
-;(struct method (vars body super-name fields))
 
 ; new-object :: ClassName -> Obj
 ;;; (define new-object      ; Cria um objeto da classe class-name
@@ -185,7 +161,7 @@
 ;;;       (map
 ;;;        (lambda (field-name) ; Campos de dados. cria uma nova referência na memória com o nome dos campos
 ;;;          (newref field-name));(list 'uninitialized-field field-name)))
-;;;        (ast:decl-fields (lookup-class class-name)))))) ; Pega os campos da classe com o nome class-name, encontrada com lookup-class
+;;;        (ast:decl-fields (find-class class-name)))))) ; Pega os campos da classe com o nome class-name
 
 ; apply-method :: Method x Obj x ListOf(ExpVal) -> ExpVal
 (define (apply-method m self args) ; Função que aplica o método m do objeto self com os argumentos args, e retorna o valor
@@ -194,11 +170,12 @@
         (let ([vars (ast:method-params m)]                  ; Obtém as informações relevantes do método m
               [body (ast:method-body m)]
               [super-name (ast:method-name m)])
-          (value-of body (extend-env vars (map newref args) ; Obtém o valor do corpo do método no novo ambiente, criado com extend env, com a variável vars, e as referências na memória dos argumentos
-                                        (extend-env-with-self-and-super ; Estende o ambiente com o objeto atual, e com a classe super-name que possui o método
-                                         self super-name
-                                         (extend-env (object-fields self) ; Estende o ambiente vazio com os campos de dados do objeto atual
-                                                     empty-env)))))(display "m não é método\n")))
+          (value-of body 
+            (extend-env vars (map newref args) ; Obtém o valor do corpo do método no novo ambiente, criado com extend env, com a variável vars, e as referências na memória dos argumentos
+              (extend-env-with-self-and-super ; Estende o ambiente com o objeto atual, e com a classe super-name que possui o método
+                self super-name
+                (extend-env (object-fields self) ; Estende o ambiente vazio com os campos de dados do objeto atual
+                            empty-env)))))(display "m não é método\n")))
 
 
 
@@ -206,13 +183,13 @@
 ;the-class :: ClassEnv
 (define the-class-env '()) ;object object null)) ; Ambiente de classe vazio, que será inicializado pela função initialize-class-env! com as classes declaradas no programa
 
-; initialize-class-env! :: Listof(ClassDecl) -> ???
-(define initialize-class-env! ; inicializa o ambiente de classes the-class com os objetos correspondentes às declarações de classe do programa
+; initialize-class-env! :: () -> ???
+(define initialize-class-env ; inicializa o ambiente de classes the-class com os objetos correspondentes às declarações de classe do programa
   (lambda ()
-    (printf "\n Tentando inicializar classe\n")
+    (printf "Tentando inicializar classe")
     (set! the-class-env
       (list
-        (list 'object (ast:decl  #f #f  '() '())))) ; Inicializa o ambiente de classes com um objeto
+        (list "object" (ast:decl  #f #f  '() '())))) ; Inicializa o ambiente de classes com um objeto
   )
 )
 
@@ -221,48 +198,26 @@
   (lambda (class-name super-name field-names m-decls)
     (let ([field-names 
             (append-field-names ; Obtém os nomes dos campos resultantes da concatenação dos campos da classe atual com os da superior
-              (ast:decl-fields (lookup-class super-name))
+              (ast:decl-fields (find-class super-name))
               field-names)])
           (add-to-class-env! ; Adiciona a classe com nome class-name e dados obtidos acima no ambiente the-class-env
             class-name
-            (ast:decl class-name super-name field-names
+            (ast:decl class-name super-name field-names 
               (merge-method-envs ; Faz um merge no ambiente de métodos da classe atual com a superior
-                (ast:decl-methods (lookup-class super-name)) ; Obtém o ambiente de métodoss da classe superior
+                (ast:decl-methods (find-class super-name)) ; Obtém o ambiente de métodoss da classe superior
                 (method-decls->method-env ; Obtém o ambiente de métodos declarado nesta declaração de classe
-                m-decls super-name))))
-                )))
-
-;;; (struct field (name)) 
-;;; (define teste
-;;;   (lambda (p)
-;;;       (match p 
-;;;       [(field (ast:var name)) (print "caiu aqui")]
-;;;       [(ast:method name params body) (print "caiu no segundo")]
-;;;       )
-;;;   )
-;;; )
-
+                m-decls super-name)
+              )
+            )
+          )
+    )
+  )
+)
 
 ;;; (define (append l1 l2)
 ;;;   (cond
 ;;;     ((null? l1) l2)
 ;;;     (else (cons (car l1) (append (cdr l1) l2)))))
-
-;;; (define get-list
-;;;   (lambda (list)
-;;;     (printf "\noi\n")
-;;;     (display list)
-;;;   )
-;)
-
-;;; (define find-fields
-;;;   (lambda (list)
-;;;     (for-each se for igual adiciona list)
-;;;   )
-;;; )
-
-
-
 
 ; add-to-class-env! :: ClassName x Class -> ???
 (define add-to-class-env!     ; Adiciona a classe class de nome class-name no ambiente the-class
@@ -272,18 +227,24 @@
            (list class-name class)
            the-class-env))))
 
-; lookup-class :: ClassName -> Class
-(define lookup-class    ; Procura e retorna (se existir) a classe de nome name no ambiente the-class
+; find-class :: ClassName -> Class
+(define find-class    ; Procura e retorna (se existir) a classe de nome no ambiente the-class
   (lambda (name)
-    (printf "\nClasses adicionadas: ")
-    (display the-class-env)
-    (printf "\n lookup name \n")
-    (display name)
-    (printf "\n")
-    (let ((maybe-pair (assq name the-class-env)))
-    (if maybe-pair (cadr maybe-pair)
+    (printf "\n\nClasses adicionadas: ")
+    (displayln the-class-env)
+    (printf "\nlookup: ")
+    (displayln name)
+    (let ((maybe-pair 
+            (assf 
+              (lambda (x) 
+                (string=? name x))
+            the-class-env)))
+      (if maybe-pair 
+        (cadr maybe-pair)
         (display "\nClasse desconhecida\n"))
-)))
+    )
+  )
+)
 
 ; fresh-identifier           
 (define fresh-identifier ; Função para criar novo identificador ao "mergear" os campos de classes diferentes com métodos com mesmo nome
@@ -313,7 +274,7 @@
 ; find-method :: Sym x Sym -> Method
 (define find-method                ; encontra um método de nome name em uma classe c-name
   (lambda (c-name name)
-    (let ([this-class (lookup-class c-name)])   ; primeiro procura a classe
+    (let ([this-class (find-class c-name)])   ; primeiro procura a classe
       (if (void? this-class) (display "Classe não encontrada\n")
           (let ([m-env (ast:decl-methods this-class)])    ; se encontrou a clase, pega o ambiente de métodos da classe
              (let ([maybe-pair (assq name m-env)])        ; encontra o par (nome_do_método, método) no ambiente de métodos da m-env
@@ -323,8 +284,11 @@
 ; method-decls->method-env :: Listof(MethodDecl) x ClassName x Listof(FieldName) -> MethodEnv
 (define method-decls->method-env ; retorna o ambiente de métodos correspondente às declarações de métodos da classe que está sendo declarada no programa
   (lambda (m-decls super-name)  ; m-decls: declaração de métodos, super-name: nome de class, field-names: nome dos campos da classe
+    (displayln m-decls)
+    (displayln super-name)
     (map
      (lambda (m-decl)  ; para cada declaração de método, pega as informações relevantes do método (method-name, vars e body)
+       (displayln m-decl)
        (let ([method-name (cadr m-decl)] 
              [vars (caddr m-decl)]
              [body (cadddr m-decl)])
@@ -341,58 +305,3 @@
 ;;;   (lambda (pred)
 ;;;     (lambda (v)
 ;;;       (or (not v) (pred v)))))
-
-;------------------------------------------------------------------------------------------------------------------------------------------------
-; Exemplo 1: resultado = 33
-;;; (define t1 '((
-;;;               class c1 extends object () 
-;;;                 method initialize () 1
-;;;                 method m1 () (send self m2())
-;;;                 method m2 () 13
-;;;               class c2 extends c1 () 
-;;;                 method m1 () 22
-;;;                 method m2 () 23
-;;;                 method m3 () (super m1())
-;;;             )
-;;;             (let t = 0 new c1())
-;;; ))
-
-(define t1 '(class c1 extends object
-  field i
-  field j
-
-  method initialize (x)
-    begin
-      set i = x;
-      set j = -(0,x)
-    end
-
-  method countup (d)
-    begin
-      set i = -(i, -(0,d));
-      set j = -(j,d)
-    end
-
-  method geti() i
-
-  method getj() j
-  
-
-let t1 = 0
-in let t2 = 0
-   in let o1 = new c1(3)
-      in begin
-        set t1 = send o1 geti();
-        send o1 countup (2);
-        set t2 = send o1 geti();
-        -(t1,t2)
-       end))
-
-
-            ;;;  (class c3 (c2 () ((method m1 () 32)
-            ;;;                   (method m2 () 33)))))
-            ;;;  (new c1 ()) ))
-            ;(send (var o3) m3 ()))))
-
-; Valor dos exemplos
-;(value-of-program t1)

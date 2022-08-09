@@ -62,14 +62,14 @@
                               (find-method (apply-env Δ '%super) (cadr exp))
                               obj                                      ; com os argumentos args e o objeto obj
                               args))]
-    ;;; [(ast:new class-name args)
-    ;;;                         (let ([args (values-of-exps args Δ)])   ; new cria um novo objeto      
-    ;;;                           (let ([this-meth (find-method (object-class-name obj) 'initialize)])   ; acha o método initialize do objeto obj
-    ;;;                             (apply-method                                                        ; e aplica o método
-    ;;;                               this-meth
-    ;;;                               obj
-    ;;;                               args))
-    ;;;                           obj)] ; retornando obj
+    [(ast:new class-name args)
+                            (let ([args (values-of-exps args Δ)])   ; new cria um novo objeto      
+                              (let ([this-meth (find-method (object-class-name obj) 'initialize)])   ; acha o método initialize do objeto obj
+                                (apply-method                                                        ; e aplica o método
+                                  this-meth
+                                  obj
+                                  args))
+                              obj)] ; retornando obj
     ;-------------------------------------------------------------------------
     [e (raise-user-error "unimplemented-construction: " e)]
     ))
@@ -82,14 +82,11 @@
   (lambda (prog)
     (match-define  
       (ast:prog decls exp) prog)
-    (printf "\n")
-    (display decls)
-    (printf "\n")
-    (printf "\n")
     (empty-store)        ; incializa o store
     (initialize-class-env) ; inicializa o ambiente com object no the-class-env
     (for-each teste decls)
     (printf "\ncriou as classe\n")
+    (displayln the-class-env)
     ;(display exp)
     ;(value-of exp the-class-env)
   ))
@@ -186,7 +183,6 @@
 ; initialize-class-env! :: () -> ???
 (define initialize-class-env ; inicializa o ambiente de classes the-class com os objetos correspondentes às declarações de classe do programa
   (lambda ()
-    (printf "Tentando inicializar classe")
     (set! the-class-env
       (list
         (list "object" (ast:decl  #f #f  '() '())))) ; Inicializa o ambiente de classes com um objeto
@@ -230,10 +226,6 @@
 ; find-class :: ClassName -> Class
 (define find-class    ; Procura e retorna (se existir) a classe de nome no ambiente the-class
   (lambda (name)
-    (printf "\n\nClasses adicionadas: ")
-    (displayln the-class-env)
-    (printf "\nlookup: ")
-    (displayln name)
     (let ((maybe-pair 
             (assf 
               (lambda (x) 
@@ -281,27 +273,20 @@
                (if (pair? maybe-pair) (cadr maybe-pair)   ; Se encontrou, retorna somente o método.
                    (display "Método não encontrado\n"))))))))
 
-; method-decls->method-env :: Listof(MethodDecl) x ClassName x Listof(FieldName) -> MethodEnv
+; method-decls->method-env :: Listof(MethodDecl) x ClassName -> MethodEnv
 (define method-decls->method-env ; retorna o ambiente de métodos correspondente às declarações de métodos da classe que está sendo declarada no programa
   (lambda (m-decls super-name)  ; m-decls: declaração de métodos, super-name: nome de class, field-names: nome dos campos da classe
-    (displayln m-decls)
-    (displayln super-name)
     (map
-     (lambda (m-decl)  ; para cada declaração de método, pega as informações relevantes do método (method-name, vars e body)
-       (displayln m-decl)
-       (let ([method-name (cadr m-decl)] 
-             [vars (caddr m-decl)]
-             [body (cadddr m-decl)])
-         (list method-name (ast:method super-name vars body)))) ; cria uma lista de dois elementos: o nome do método, e o método em si, como foi feito para as classes
-     m-decls))) ; aplica a função em cada uma das declarações de método atuais
+      (lambda (m-decl)  ; para cada declaração de método, pega as informações relevantes do método (method-name, vars e body)
+        (match-define 
+          (ast:method method-name params body) m-decl)
+        (list method-name (ast:method super-name params body))
+      ) ; cria uma lista de dois elementos: o nome do método, e o método em si, como foi feito para as classes
+     m-decls))
+) ; aplica a função em cada uma das declarações de método atuais
 
 ; merge-method-envs :: MethodEnv x MethodEnv -> MethodEnv     
 (define merge-method-envs ; Função para juntar ambientes de métodos de duas classes
   (lambda (super-m-env new-m-env) ; Simplesmente concatena (append) o novo ambiente com o antigo (da classe superior). Dessa maneira, os métodos da classe nova, que estende a superior
     (append new-m-env super-m-env))) ; ficam na frente. Quando a função find-method procura um método, vai pegar usando a função assq o primeiro da lista, ou seja, o da classe mais
                                      ; baixa na hierarquia (o mais novo). Dessa forma lida-se com duas classes com métodos de mesmo nome, uma das quais estende a outra.
-;;; ; maybe :: 
-;;; (define maybe  ; Função auxiliar maybe
-;;;   (lambda (pred)
-;;;     (lambda (v)
-;;;       (or (not v) (pred v)))))

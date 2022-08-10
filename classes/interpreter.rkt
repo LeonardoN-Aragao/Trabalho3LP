@@ -27,6 +27,7 @@
 ; value-of :: Exp -> ExpVal
     ;[(ast:super (ast:var x) e) (apply-env x e %super)]
 (define (value-of exp Δ)
+  (displayln "value-of")
   ;(displayln exp)
   ;(displayln Δ)
   (match exp
@@ -46,9 +47,9 @@
     ;-------------------------------------------------------------------------
 
     [(ast:self) (apply-env Δ '%self)] ; apply the environment in the '%self class
-              
     [(ast:send obj-exp method-name args) 
-                          (let ([args (values-of-exps args Δ)] ; send retira os argumentos e o objeto
+                          ((display "entrou"))
+                            (let ([args (values-of-exps args Δ)] ; send retira os argumentos e o objeto
                                 [obj (value-of obj-exp Δ)])
                             (apply-method                              ; e em seguida aplica o método (caddr exp) no objeto obj com os argumentos args
                             (find-method (object-class-name obj) (ast:var-name method-name))
@@ -61,20 +62,13 @@
                               (find-method (apply-env Δ '%super) (ast:var-name name));tentar só name
                               obj                                      ; com os argumentos args e o objeto obj
                               args))]
-    [(ast:new class args) (let ([args (values-of-exps args Δ)]   
-                              [obj (new-object (ast:var-name class))])         
-                          (let ([this-meth (find-method (object-class-name obj) "initialize")])  
-                            (apply-method 
-                              this-meth
-                              obj
-                              args))
-                          obj)]
     [(ast:new (ast:var class-name) args) 
-        (let ([args (values-of-exps args Δ)] ;necessario por new c1(3)
-                [obj (new-object class-name)]
-                [class (find-class class-name)])        ; usando new-object
+        (let ([args (values-of-exps args Δ)]
+            [obj (new-object class-name)]
+            [class (find-class class-name)])        ; usando new-object
           (let ([this-meth (find-method (object-class-name obj) "initialize")])   ; acha o método initialize do objeto obj 
-            (apply-method this-meth obj args (ast:decl-fields class)))                                                     ; e aplica o método
+            (apply-method this-meth obj args (ast:decl-fields class))
+          )
           obj ; retornando obj
         )
     ]     
@@ -189,7 +183,10 @@
         )
       )
     )
-    (display "m não é método\n")
+    (
+      (display "não é método\n")
+      (display m))
+
   )
 )
 

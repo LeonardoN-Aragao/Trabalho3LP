@@ -6,7 +6,7 @@ class c1 extends object
 
  method initialize (x)
     begin
-      set i = x
+      set i = x;
       set j = -(0,x)
     end
 

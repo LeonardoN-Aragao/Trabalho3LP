@@ -27,9 +27,6 @@
 ; value-of :: Exp -> ExpVal
     ;[(ast:super (ast:var x) e) (apply-env x e %super)]
 (define (value-of exp Δ)
-  (printf "\nvalue-of\n")
-  (display exp)
-  (display Δ)
   (match exp
     [(ast:int n) n]
     [(ast:dif e1 e2) (- (value-of e1 Δ) (value-of e2 Δ))]
@@ -62,14 +59,20 @@
                               (find-method (apply-env Δ '%super) (cadr exp))
                               obj                                      ; com os argumentos args e o objeto obj
                               args))]
-    [(ast:new class-name args)
-                            (let ([args (values-of-exps args Δ)])   ; new cria um novo objeto      
-                              (let ([this-meth (find-method (object-class-name obj) 'initialize)])   ; acha o método initialize do objeto obj
-                                (apply-method                                                        ; e aplica o método
-                                  this-meth
-                                  obj
-                                  args))
-                              obj)] ; retornando obj
+                    
+    [(ast:new (ast:var class-name) args) (
+                                            (let ([args (values-of-exps args Δ)] 
+                                                  [obj (new-object class-name)])        ; usando new-object
+                                            (displayln obj)
+                                            (let ([this-meth (find-method (object-class-name obj) 'initialize)])   ; acha o método initialize do objeto obj
+                                            ;((display (method? this-meth)) (display this-meth) (display "\n")
+                                              (apply-method                                                        ; e aplica o método
+                                              this-meth
+                                              obj
+                                              args))
+                                            obj) ; retornando obj
+                                            (raise-user-error "parou ")
+                                          )]     
     ;-------------------------------------------------------------------------
     [e (raise-user-error "unimplemented-construction: " e)]
     ))
@@ -86,9 +89,10 @@
     (initialize-class-env) ; inicializa o ambiente com object no the-class-env
     (for-each teste decls)
     (printf "\ncriou as classe\n")
-    (displayln the-class-env)
+    ;(displayln the-class-env)
     ;(display exp)
-    ;(value-of exp the-class-env)
+    (printf "\n\n")
+    (value-of exp the-class-env)
   ))
 
 
@@ -151,14 +155,14 @@
 (struct object (class-name fields)) 
 
 ; new-object :: ClassName -> Obj
-;;; (define new-object      ; Cria um objeto da classe class-name
-;;;   (lambda (class-name)
-;;;     (object             ; Cria um objeto
-;;;       class-name        ; nome da classe
-;;;       (map
-;;;        (lambda (field-name) ; Campos de dados. cria uma nova referência na memória com o nome dos campos
-;;;          (newref field-name));(list 'uninitialized-field field-name)))
-;;;        (ast:decl-fields (find-class class-name)))))) ; Pega os campos da classe com o nome class-name
+(define new-object      ; Cria um objeto da classe class-name
+  (lambda (class-name)
+    (object             ; Cria um objeto
+      class-name        ; nome da classe
+      (map
+       (lambda (field-name) ; Campos de dados. cria uma nova referência na memória com o nome dos campos
+         (newref field-name))
+       (ast:decl-fields (find-class class-name)))))) ; Pega os campos da classe com o nome class-name
 
 ; apply-method :: Method x Obj x ListOf(ExpVal) -> ExpVal
 (define (apply-method m self args) ; Função que aplica o método m do objeto self com os argumentos args, e retorna o valor
@@ -268,10 +272,23 @@
   (lambda (c-name name)
     (let ([this-class (find-class c-name)])   ; primeiro procura a classe
       (if (void? this-class) (display "Classe não encontrada\n")
-          (let ([m-env (ast:decl-methods this-class)])    ; se encontrou a clase, pega o ambiente de métodos da classe
-             (let ([maybe-pair (assq name m-env)])        ; encontra o par (nome_do_método, método) no ambiente de métodos da m-env
-               (if (pair? maybe-pair) (cadr maybe-pair)   ; Se encontrou, retorna somente o método.
-                   (display "Método não encontrado\n"))))))))
+          (let ([m-env (ast:decl-methods this-class)])
+              (map
+                (lambda (method)
+                  (match-define
+                    (ast:var m-name) (car method))
+                    (displayln m-name) 
+                    (let ([maybe-pair (
+                       (if (string=? name m-name) method #f)
+                    )])
+                    (displayln maybe-pair)        ; encontra o par (nome_do_método, método) no ambiente de métodos da m-env
+                    (if (pair? maybe-pair) (cadr maybe-pair)   ; Se encontrou, retorna somente o método.
+                      (display "Método não encontrado\n")
+                    ) 
+                  )
+                ) m-env
+              )
+)))))
 
 ; method-decls->method-env :: Listof(MethodDecl) x ClassName -> MethodEnv
 (define method-decls->method-env ; retorna o ambiente de métodos correspondente às declarações de métodos da classe que está sendo declarada no programa

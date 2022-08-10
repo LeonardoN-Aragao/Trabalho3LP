@@ -27,6 +27,8 @@
 ; value-of :: Exp -> ExpVal
     ;[(ast:super (ast:var x) e) (apply-env x e %super)]
 (define (value-of exp Δ)
+  ;(displayln exp)
+  ;(displayln Δ)
   (match exp
     [(ast:int n) n]
     [(ast:dif e1 e2) (- (value-of e1 Δ) (value-of e2 Δ))]
@@ -59,16 +61,21 @@
                               (find-method (apply-env Δ '%super) (ast:var-name name));tentar só name
                               obj                                      ; com os argumentos args e o objeto obj
                               args))]
-
+    [(ast:new class args) (let ([args (values-of-exps args Δ)]   
+                              [obj (new-object (ast:var-name class))])         
+                          (let ([this-meth (find-method (object-class-name obj) "initialize")])  
+                            (apply-method 
+                              this-meth
+                              obj
+                              args))
+                          obj)]
     [(ast:new (ast:var class-name) args) 
-        (
-          (let ([args (values-of-exps args Δ)] ;necessario por new c1(3)
+        (let ([args (values-of-exps args Δ)] ;necessario por new c1(3)
                 [obj (new-object class-name)]
                 [class (find-class class-name)])        ; usando new-object
           (let ([this-meth (find-method (object-class-name obj) "initialize")])   ; acha o método initialize do objeto obj 
             (apply-method this-meth obj args (ast:decl-fields class)))                                                     ; e aplica o método
-          obj) ; retornando obj
-          (raise-user-error "parabéns funcionou")
+          obj ; retornando obj
         )
     ]     
     ;-------------------------------------------------------------------------
@@ -108,15 +115,6 @@
      (lambda (exp) (value-of exp env))
      exps)))
 ;------------------------------------
-; Função extend-env-with-self-and-super, retirada do livro Essentials of Programming Languages
-(define (extend-env-with-self-and-super self super-name saved-env) ; função faz a ligação de %self e %super com um objeto e um nome de classe, respectivamente
-  (lambda (svar)
-    (case svar
-            ((%self) self)
-            ((%super) super-name)
-            (else (apply-env saved-env svar)))))
-
-;------------------------------------
 
 ; call-by-value
 ; proc-val :: Var x Expr x Env -> Proc
@@ -151,23 +149,69 @@
 (define (apply-method m self args f) ; Função que aplica o método m do objeto self com os argumentos args, e retorna o valor
   ;(lambda (m self args)
   (if (ast:method? m) ; Checa se m é método
-        (
-          let ([vars (ast:var-name (car (ast:method-params m)))]                  ; Obtém as informações relevantes do método m
-              [body (ast:method-body m)]
-              [super-name (ast:method-name m)]
-              [fields (map (lambda (x) 
-                (ast:var-name x)) f)])
-          (value-of body 
-            (extend-env vars (map newref args) ; Obtém o valor do corpo do método no novo ambiente, criado com extend env, com a variável vars, e as referências na memória dos argumentos
-              (extend-env-with-self-and-super ; Estende o ambiente com o objeto atual, e com a classe super-name que possui o método
-                self super-name
-                (map (lambda (x)
-                  extend-env x (object-fields self) ; Estende o ambiente vazio com os campos de dados do objeto atual
-                            empty-env) fields) (empty-env empty-env)
-          )))) (display "m não é método\n"))
+    (
+      let ([vars (map (lambda (x) 
+            (ast:var-name x)) (ast:method-params m))]                  ; Obtém as informações relevantes do método m
+          [body (ast:method-body m)]
+          [super-name (ast:method-name m)]
+          [fields (map (lambda (x) 
+            (ast:var-name x)) f)])
+;;;  (value-of body (extend-env vars (map newref args) ; Obtém o valor do corpo do método no novo ambiente, criado com extend env, com a variável vars, e as referências na memória dos argumentos
+            ;;; (extend-env-with-self-and-super ; Estende o ambiente com o objeto atual, e com a classe super-name que possui o método
+            ;;;   self super-name
+            ;;;   (extend-env fields (object-fields self) ; Estende o ambiente vazio com os campos de dados do objeto atual
+            ;;;               empty-env)))))(display "m não é método\n")))
+    ;;;   (value-of body 
+    ;;;     (map 
+    ;;;       (lambda (z)
+    ;;;         (display "z: ")
+    ;;;         (display z)
+    ;;;         (extend-env z (map newref args) ; Obtém o valor do corpo do método no novo ambiente, criado com extend env, com a variável vars, e as referências na memória dos argumentos
+    ;;;           (extend-env-with-self-and-super ; Estende o ambiente com o objeto atual, e com a classe super-name que possui o método
+    ;;;             self super-name
+    ;;;             (map (lambda(y)
+    ;;;                 (extend-env y (object-fields self) empty-env)
+    ;;;                 ) fields
+    ;;;             )
+    ;;;           )
+    ;;;         )
+    ;;;       ) vars
+    ;;;     )
+    ;;;   ) 
+    ;;; ) 
+
+      (value-of body 
+        (multiple-extend-env vars (map newref args) ; Obtém o valor do corpo do método no novo ambiente, criado com extend env, com a variável vars, e as referências na memória dos argumentos
+          (extend-env-with-self-and-super ; Estende o ambiente com o objeto atual, e com a classe super-name que possui o método
+            self super-name
+            (multiple-extend-env fields (object-fields self) empty-env)
+          )
+        )
+      )
+    )
+    (display "m não é método\n")
+  )
 )
 
+(define (multiple-extend-env vars values env)
+  (foldl (lambda(var-value env)
+    (extend-env (first var-value) (second var-value) env)) env (append vars values)
+  )
+)
 
+;------------------------------------
+; Função extend-env-with-self-and-super, retirada do livro Essentials of Programming Languages
+(define (extend-env-with-self-and-super self super-name saved-env) ; função faz a ligação de %self e %super com um objeto e um nome de classe, respectivamente
+  (lambda (svar)
+    (println "eewss")
+    (displayln self)
+    (displayln super-name)
+    (displayln saved-env)
+    (displayln svar)
+    (case svar
+            ((%self) self)
+            ((%super) super-name)
+            (else (apply-env saved-env svar)))))
 
 ; ClassEnv = Listof(List(ClassName, Class))
 ;the-class :: ClassEnv
@@ -203,10 +247,14 @@
   )
 )
 
+;Concatena as listas em uma lista só
 (define (append l1 l2)
-  (cond
-    ((null? l1) l2)
-    (else (cons (car l1) (append (cdr l1) l2)))))
+  (if (or (null? l1) (null? l2))
+      '()
+      (cons (list (car l1) (car l2))
+            (append  (cdr l1) (cdr l2))))
+)
+
 
 ; add-to-class-env! :: ClassName x Class -> ???
 (define add-to-class-env!     ; Adiciona a classe class de nome class-name no ambiente the-class

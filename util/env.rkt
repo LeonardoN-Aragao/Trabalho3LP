@@ -14,8 +14,6 @@
 
 (define (apply-env env var)
   (
-    (displayln env)
-    (displayln var)
     (env var)
   )
 )

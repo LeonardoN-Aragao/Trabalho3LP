@@ -45,40 +45,35 @@
 
     [(ast:self) (apply-env Δ '%self)] ; apply the environment in the '%self class
               
-    [(ast:send obj-exp method-name rands) 
-                          (let ([args (values-of-exps (cadddr exp) Δ)] ; send retira os argumentos e o objeto
-                                [obj (value-of (cadr exp) Δ)])
+    [(ast:send obj-exp method-name args) 
+                          (let ([args (values-of-exps args Δ)] ; send retira os argumentos e o objeto
+                                [obj (value-of obj-exp Δ)])
                             (apply-method                              ; e em seguida aplica o método (caddr exp) no objeto obj com os argumentos args
-                            (find-method (object-class-name obj) (caddr exp))
+                            (find-method (object-class-name obj) (ast:var-name method-name))
                             obj
                             args))]
     [(ast:super name args) 
-                            (let ([args (values-of-exps (caddr exp) Δ)] ; super retira os argumentos e o objeto self
+                            (let ([args (values-of-exps args Δ)] ; super retira os argumentos e o objeto self
                                 [obj (apply-env Δ '%self)])
                             (apply-method                             ; e acha o método (cadr exp) do objeto super
-                              (find-method (apply-env Δ '%super) (cadr exp))
+                              (find-method (apply-env Δ '%super) (ast:var-name name));tentar só name
                               obj                                      ; com os argumentos args e o objeto obj
                               args))]
-                    
-    [(ast:new (ast:var class-name) args) (
-                                            (let ([args (values-of-exps args Δ)] 
-                                                  [obj (new-object class-name)])        ; usando new-object
-                                            (displayln obj)
-                                            (let ([this-meth (find-method (object-class-name obj) 'initialize)])   ; acha o método initialize do objeto obj
-                                            ;((display (method? this-meth)) (display this-meth) (display "\n")
-                                              (apply-method                                                        ; e aplica o método
-                                              this-meth
-                                              obj
-                                              args))
-                                            obj) ; retornando obj
-                                            (raise-user-error "parou ")
-                                          )]     
+
+    [(ast:new (ast:var class-name) args) 
+        (
+          (let ([args (values-of-exps args Δ)] ;necessario por new c1(3)
+                [obj (new-object class-name)]
+                [class (find-class class-name)])        ; usando new-object
+          (let ([this-meth (find-method (object-class-name obj) "initialize")])   ; acha o método initialize do objeto obj 
+            (apply-method this-meth obj args (ast:decl-fields class)))                                                     ; e aplica o método
+          obj) ; retornando obj
+          (raise-user-error "parabéns funcionou")
+        )
+    ]     
     ;-------------------------------------------------------------------------
     [e (raise-user-error "unimplemented-construction: " e)]
     ))
-    ;;; (if (number? exp) exp                          ; Se Expr -> Number            
-    ;;;       (if (equal? exp 'self) (apply-env Δ '%self) ; se for self
-    ;;;           (apply-env Δ exp))))                  ; senão, é identificador
 
 ; value-of-program :: Program -> ExpVal
 (define value-of-program ; Função principal, chamada para avaliar o valor de um programa.
@@ -87,23 +82,24 @@
       (ast:prog decls exp) prog)
     (empty-store)        ; incializa o store
     (initialize-class-env) ; inicializa o ambiente com object no the-class-env
-    (for-each teste decls)
-    (printf "\ncriou as classe\n")
+    (map (lambda decls
+      (match (car decls) ;map?
+        [(ast:decl (ast:var name) (ast:var super) fields methods) (initialize-class-decl! name super fields methods)])
+    ) decls)
+    ;(printf "\ncriou as classe\n")
     ;(displayln the-class-env)
     ;(display exp)
-    (printf "\n\n")
     (value-of exp the-class-env)
-  ))
+))
 
 
-(define teste 
-  (lambda decls
-    (printf "\n\n") 
-    (display decls)
-    (match (car decls) ;map?
-      [(ast:decl (ast:var name) (ast:var super) fields methods) (initialize-class-decl! name super fields methods)])
-  )
-)
+;;; (for-each teste decls)
+;;; (define teste 
+;;;   (lambda decls
+;;;     (match (car decls) ;map?
+;;;       [(ast:decl (ast:var name) (ast:var super) fields methods) (initialize-class-decl! name super fields methods)])
+;;;   )
+;;; )
 
 ; Comportamento de uma lista de expressões, podendo ser vazia. Função auxiliar
 (define values-of-exps
@@ -111,19 +107,6 @@
     (map
      (lambda (exp) (value-of exp env))
      exps)))
-
-;;; ; Função extend-env modificada para CLASSES
-;;; (define (extend-env var value env)
-;;;   (lambda (svar)
-;;;     (if (list? var) ; Se a variável for uma lista, como quando tem vários fields (i j) em um objeto
-;;;         (if (memq svar var) (list-ref value (index-of var svar)) ; Se svar está na lista var, retira o valor da lista value na posição que o elemento svar está em var
-;;;             (apply-env env svar)) ; senão, aplica o ambiente-pai em svar para encontrar a variável no ambiente anterior
-;;;         (if (equal? svar var) (if (list? value) (car value) value) ; Se value é uma lista, como no caso em que um objeto tem vários fields (i j) e você quer encontrar somente i
-;;;             (apply-env env svar))))) ; senão, aplica o ambiente-pai em svar para encontrar a variável no ambiente anterior
-
-(define (apply-env env var)
-  (env var))
-
 ;------------------------------------
 ; Função extend-env-with-self-and-super, retirada do livro Essentials of Programming Languages
 (define (extend-env-with-self-and-super self super-name saved-env) ; função faz a ligação de %self e %super com um objeto e um nome de classe, respectivamente
@@ -165,18 +148,24 @@
        (ast:decl-fields (find-class class-name)))))) ; Pega os campos da classe com o nome class-name
 
 ; apply-method :: Method x Obj x ListOf(ExpVal) -> ExpVal
-(define (apply-method m self args) ; Função que aplica o método m do objeto self com os argumentos args, e retorna o valor
+(define (apply-method m self args f) ; Função que aplica o método m do objeto self com os argumentos args, e retorna o valor
   ;(lambda (m self args)
   (if (ast:method? m) ; Checa se m é método
-        (let ([vars (ast:method-params m)]                  ; Obtém as informações relevantes do método m
+        (
+          let ([vars (ast:var-name (car (ast:method-params m)))]                  ; Obtém as informações relevantes do método m
               [body (ast:method-body m)]
-              [super-name (ast:method-name m)])
+              [super-name (ast:method-name m)]
+              [fields (map (lambda (x) 
+                (ast:var-name x)) f)])
           (value-of body 
             (extend-env vars (map newref args) ; Obtém o valor do corpo do método no novo ambiente, criado com extend env, com a variável vars, e as referências na memória dos argumentos
               (extend-env-with-self-and-super ; Estende o ambiente com o objeto atual, e com a classe super-name que possui o método
                 self super-name
-                (extend-env (object-fields self) ; Estende o ambiente vazio com os campos de dados do objeto atual
-                            empty-env)))))(display "m não é método\n")))
+                (map (lambda (x)
+                  extend-env x (object-fields self) ; Estende o ambiente vazio com os campos de dados do objeto atual
+                            empty-env) fields) (empty-env empty-env)
+          )))) (display "m não é método\n"))
+)
 
 
 
@@ -214,10 +203,10 @@
   )
 )
 
-;;; (define (append l1 l2)
-;;;   (cond
-;;;     ((null? l1) l2)
-;;;     (else (cons (car l1) (append (cdr l1) l2)))))
+(define (append l1 l2)
+  (cond
+    ((null? l1) l2)
+    (else (cons (car l1) (append (cdr l1) l2)))))
 
 ; add-to-class-env! :: ClassName x Class -> ???
 (define add-to-class-env!     ; Adiciona a classe class de nome class-name no ambiente the-class
@@ -273,22 +262,19 @@
     (let ([this-class (find-class c-name)])   ; primeiro procura a classe
       (if (void? this-class) (display "Classe não encontrada\n")
           (let ([m-env (ast:decl-methods this-class)])
-              (map
-                (lambda (method)
-                  (match-define
-                    (ast:var m-name) (car method))
-                    (displayln m-name) 
-                    (let ([maybe-pair (
-                       (if (string=? name m-name) method #f)
-                    )])
-                    (displayln maybe-pair)        ; encontra o par (nome_do_método, método) no ambiente de métodos da m-env
-                    (if (pair? maybe-pair) (cadr maybe-pair)   ; Se encontrou, retorna somente o método.
-                      (display "Método não encontrado\n")
-                    ) 
+                (let ([maybe-pair (assf 
+                  (lambda (x)
+                   (match-define
+                    (ast:var m-name) x)
+                   (string=? name m-name)) m-env)
+                ])
+                (if (pair? maybe-pair) (cadr maybe-pair)   ; Se encontrou, retorna somente o método.
+                  (display "Método não encontrado\n")
+                ) 
                   )
-                ) m-env
+                ) 
               )
-)))))
+)))
 
 ; method-decls->method-env :: Listof(MethodDecl) x ClassName -> MethodEnv
 (define method-decls->method-env ; retorna o ambiente de métodos correspondente às declarações de métodos da classe que está sendo declarada no programa
@@ -299,7 +285,8 @@
           (ast:method method-name params body) m-decl)
         (list method-name (ast:method super-name params body))
       ) ; cria uma lista de dois elementos: o nome do método, e o método em si, como foi feito para as classes
-     m-decls))
+     m-decls)
+  )
 ) ; aplica a função em cada uma das declarações de método atuais
 
 ; merge-method-envs :: MethodEnv x MethodEnv -> MethodEnv     

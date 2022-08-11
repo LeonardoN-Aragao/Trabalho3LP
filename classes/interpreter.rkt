@@ -159,7 +159,7 @@
             )
         )
       )
-      (display " não é método\n")
+      (displayln "Its not a method")
   )
 )
 
@@ -245,7 +245,7 @@
           )
       (if maybe-pair 
         (cadr maybe-pair) ; true
-        (display "\nClasse desconhecida\n") ; false
+        (displayln "Unknow Class") ; false
       )
     )
   )
@@ -284,21 +284,23 @@
 (define find-method                
   (lambda (c-name name)
     (let ([this-class (find-class c-name)])   ; primeiro procura a classe
-      (if (void? this-class) (display "Classe não encontrada\n")
+      (if (void? this-class) (displayln "Class not found")
           (let ([m-env (ast:decl-methods this-class)])
-                (let ([maybe-pair (assf 
+                (let ([method (assf 
                   (lambda (x)
                    (match-define
                     (ast:var m-name) x)
                    (string=? name m-name)) m-env)
                 ])
-                (if (pair? maybe-pair) (cadr maybe-pair)   ; Se encontrou, retorna somente o método.
-                  (display "Método não encontrado\n")
+                (if (pair? method) (cadr method)   ; Se encontrou, retorna somente o método.
+                  (displayln "Method not found")
                 ) 
                   )
-                ) 
-              )
-)))
+          ) 
+      )
+    )
+  )
+)
 
 ; Retorna o ambiente de métodos correspondente às declarações de métodos da classe que está sendo declarada no programa
 (define method-decls->method-env 

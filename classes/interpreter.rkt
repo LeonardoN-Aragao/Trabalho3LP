@@ -146,22 +146,23 @@
           [super-name (ast:method-name m)]
           [fields (map (lambda (x) 
             (ast:var-name x)) f)])
-      (value-of body 
-        (multiple-extend-env vars (map newref args) ; Obtém o valor do corpo do método no novo ambiente, criado com extend env, com a variável vars, e as referências na memória dos argumentos
-          (extend-env-with-self-and-super ; Estende o ambiente com o objeto atual, e com a classe super-name que possui o método
+        (
+          let ([values (map newref args)]; Obtém o valor do corpo do método no novo ambiente, criado com extend env, com a variável vars, e as referências na memória dos argumentos
+              [env (extend-env-with-self-and-super ; Estende o ambiente com o objeto atual, e com a classe super-name que possui o método
             self super-name
-            (multiple-extend-env fields (object-fields self) empty-env)
-          )
+              (foldl (lambda(var-value empty-env)
+                (extend-env (first var-value) (second var-value) empty-env)) empty-env (append fields (object-fields self))
+              )
+              )]
+            )
+            (value-of body 
+              (foldl (lambda(var-value env)
+                (extend-env (first var-value) (second var-value) env)) env (append vars values)
+              )
+            )
         )
       )
-    )
       (display " não é método\n")
-  )
-)
-
-(define (multiple-extend-env vars values env)
-  (foldl (lambda(var-value env)
-    (extend-env (first var-value) (second var-value) env)) env (append vars values)
   )
 )
 

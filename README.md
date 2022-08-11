@@ -21,11 +21,14 @@ OBS: Caso necessário baixe a pasta util de https://github.com/lvsreis/dcc019
 ## Decisões de projeto
 
 Foi utilizado o struct objeto que é uma instância de uma classe.  
+
 $ (struct object (class-name fields)) 
 
 the-class-env é uma variável global que é iniciada vazia '()
 initialize-class-env! somente inicia o objeto vazio em the-class-env.
+
 $ "object" (ast:decl  #f #f  '() '()))
+
 initializa-class-decl! inclui a declaração de cada classe do programa no the-class-env.
 
 

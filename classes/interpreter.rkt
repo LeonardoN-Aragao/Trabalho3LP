@@ -302,7 +302,7 @@
                 )
                 (if (pair? method)
                   (cadr method)  ; se encontrou método na lista de métodos da classe em questão "retorna" o método 
-                  (display "Método não encontrado\n") ; se não encontrou
+                  (displayln "Method not found\n") ; se não encontrou
                 )
           )
         ) ; se encontrou

@@ -1,0 +1,1 @@
+("8.6" ta6nt ("225d124d7925092c7e6627ad90dc8f8c636dfc99" . "f4be4850be7c11e602d675e11780f6cc8bb3f813") (collects #"parser-tools" #"lex-sre.rkt") (collects #"parser-tools" #"lex.rkt") (collects #"racket" #"main.rkt") (collects #"racket" #"runtime-config.rkt"))

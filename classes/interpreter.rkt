@@ -234,25 +234,25 @@
 (define find-class    
   (lambda (name)
     (let (
-            (maybe-pair 
+            (class 
               (assf 
                 (lambda (x) 
                   (string=? name x)
                 )
                 the-class-env
-              )
+              ) ; procura a classe no the-class-env pelo nome
             )
           )
-      (if maybe-pair 
-        (cadr maybe-pair) ; true
-        (displayln "Unknow Class") ; false
+      (if class 
+        (cadr class) ; se encontrou a classe
+        (displayln "Unknown Class") ; se não
       )
     )
   )
 )
 
-; Função para criar novo identificador ao "mergear" os campos de classes diferentes com métodos com mesmo nome          
-(define fresh-identifier ; Retirada do livro
+; cria novo identificador quando existem campos de diferentes classes com métodos de mesmo nome          
+(define fresh-identifier
   (let ((sn 0))          
     (lambda (identifier)  
       (set! sn (+ sn 1))
@@ -262,30 +262,30 @@
         "%"             ; % não pode aparecer em um identificador de input
         (number->string sn))))))
 
-; Concatena a lista de nomes de campos da classe superior com a atual
+; concatena a lista de nomes de campos da classe superior com a atual
 (define append-field-names 
   (lambda (super-fields new-fields)
     (cond
-      ((null? super-fields) new-fields) ; se não houver campos na classe superior, retorna simplesmente os nomes de campos novos
-      (else                             ; senão
+      ((null? super-fields) new-fields) ; retorna os nomes de campos novos quando não existem campos na super classe
+      (else                             
         (cons
-          (if (memq (car super-fields) new-fields) ; verifica se o primeiro campo da classe superior tem nome igual a um campo da classe atual
-            (fresh-identifier (car super-fields)) ; Se sim cria um novo identificador para o primeiro da classe superior
-            (car super-fields) ; Se não, simplesmente o primeiro campo da classe superior             
+          (if (memq (car super-fields) new-fields)
+            (fresh-identifier (car super-fields)) ; cria um novo identificador para o primeiro da classe superior quando conflita com algum dos novos campos
+            (car super-fields)             
           )
-          (append-field-names (cdr super-fields) new-fields) ; chama a função recursivamente com o resto (2:n) dos campos da classe superior com os novos campos
+          (append-field-names (cdr super-fields) new-fields) ; utiliza recursividade pra fazer o mesmo porém com a lista de campos da super reduzida do primeiro campo
         )
       )
     )
   )
 )
 
-; Encontra um método de nome name em uma classe c-name
+; encontra um método de nome name em uma classe c-name
 (define find-method                
   (lambda (c-name name)
     (let ([this-class (find-class c-name)])   ; primeiro procura a classe
-      (if (void? this-class) ; se classe vazia
-        (displayln "Class not found") ; true
+      (if (void? this-class)
+        (displayln "Class not found") ; se não encontrou classe com o nome
         (let ([m-env (ast:decl-methods this-class)])
           (let  (
                   [method 
@@ -297,39 +297,39 @@
                         (string=? name m-name)
                       )
                       m-env
-                    )
+                    ) ; busca método que bata com o nome do método passado no ambiente da classe em questão
                   ]
                 )
                 (if (pair? method)
-                  (cadr method)  
-                  (display "Método não encontrado\n")
+                  (cadr method)  ; se encontrou método na lista de métodos da classe em questão "retorna" o método 
+                  (display "Método não encontrado\n") ; se não encontrou
                 )
           )
-        ) ; false
+        ) ; se encontrou
       )
     )
   )
 )
 
-; Retorna o ambiente de métodos correspondente às declarações de métodos da classe que está sendo declarada no programa
+; "retorna" o ambiente de métodos correspondente às declarações de métodos da classe que está sendo declarada no programa
 (define method-decls->method-env 
-  (lambda (m-decls super-name)  ; m-decls: declaração de métodos, super-name: nome de class, field-names: nome dos campos da classe
+  (lambda (m-decls super-name)
     (map
-      (lambda (m-decl)  ; para cada declaração de método, pega as informações relevantes do método (method-name, vars e body)
+      (lambda (m-decl)  ; para cada método declarado, pega as informações relevantes do método
         (match-define 
           (ast:method method-name params body) m-decl
         )
         (list method-name (ast:method super-name params body))
-      ) ; cria uma lista de dois elementos: o nome do método, e o método em si, como foi feito para as classes
+      ) ; cria uma lista com nome do método e o método em si
       m-decls
     )
   )
-) ; aplica a função em cada uma das declarações de método atuais
+)
 
-; Função para juntar ambientes de métodos das duas classes
+; merge nos ambientes de métodos das duas classes
 (define merge-method-envs 
-  (lambda (super-m-env new-m-env) ; Simplesmente concatena (append) o novo ambiente com o antigo (da classe superior). Dessa maneira, os métodos da classe nova, que estende a superior
-    (zip new-m-env super-m-env)  ; ficam na frente. 
+  (lambda (super-m-env new-m-env) ; concatena o novo ambiente com o da classe superior. os métodos da nova classe ficam na frente dos métodos da super classe
+    (zip new-m-env super-m-env)
   )
 )
 

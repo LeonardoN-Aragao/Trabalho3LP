@@ -273,7 +273,7 @@
             (fresh-identifier (car super-fields)) ; Se sim cria um novo identificador para o primeiro da classe superior
             (car super-fields) ; Se não, simplesmente o primeiro campo da classe superior             
           )
-          (append-field-names (cdr super-fields) new-fields)   ; chama a função recursivamente com o resto (2:n) dos campos da classe superior com os novos campos
+          (append-field-names (cdr super-fields) new-fields) ; chama a função recursivamente com o resto (2:n) dos campos da classe superior com os novos campos
         )
       )
     )
@@ -284,21 +284,32 @@
 (define find-method                
   (lambda (c-name name)
     (let ([this-class (find-class c-name)])   ; primeiro procura a classe
-      (if (void? this-class) (display "Classe não encontrada\n")
-          (let ([m-env (ast:decl-methods this-class)])
-                (let ([maybe-pair (assf 
-                  (lambda (x)
-                   (match-define
-                    (ast:var m-name) x)
-                   (string=? name m-name)) m-env)
-                ])
-                (if (pair? maybe-pair) (cadr maybe-pair)   ; Se encontrou, retorna somente o método.
+      (if (void? this-class) ; se classe vazia
+        (display "Classe não encontrada\n") ; true
+        (let ([m-env (ast:decl-methods this-class)])
+          (let  (
+                  [maybe-pair 
+                    (assf 
+                      (lambda (x)
+                        (match-define
+                          (ast:var m-name) x
+                        )
+                        (string=? name m-name)
+                      )
+                      m-env
+                    )
+                  ]
+                )
+                (if (pair? maybe-pair)
+                  (cadr maybe-pair)  
                   (display "Método não encontrado\n")
-                ) 
-                  )
-                ) 
-              )
-)))
+                )
+          )
+        ) ; false
+      )
+    )
+  )
+)
 
 ; Retorna o ambiente de métodos correspondente às declarações de métodos da classe que está sendo declarada no programa
 (define method-decls->method-env 
@@ -306,19 +317,27 @@
     (map
       (lambda (m-decl)  ; para cada declaração de método, pega as informações relevantes do método (method-name, vars e body)
         (match-define 
-          (ast:method method-name params body) m-decl)
+          (ast:method method-name params body) m-decl
+        )
         (list method-name (ast:method super-name params body))
       ) ; cria uma lista de dois elementos: o nome do método, e o método em si, como foi feito para as classes
-     m-decls)
+      m-decls
+    )
   )
 ) ; aplica a função em cada uma das declarações de método atuais
 
 ; Função para juntar ambientes de métodos das duas classes
 (define merge-method-envs 
   (lambda (super-m-env new-m-env) ; Simplesmente concatena (append) o novo ambiente com o antigo (da classe superior). Dessa maneira, os métodos da classe nova, que estende a superior
-    (zip new-m-env super-m-env))) ; ficam na frente. 
+    (zip new-m-env super-m-env)  ; ficam na frente. 
+  )
+)
 
 (define (zip l1 l2)
   (cond
     ((null? l1) l2)
-    (else (cons (car l1) (zip (cdr l1) l2)))))                                
+    (else 
+      (cons (car l1) (zip (cdr l1) l2))
+    )
+  )
+)                                

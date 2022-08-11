@@ -25,7 +25,7 @@
         (apply-env env svar))))
 
 ; value-of :: Exp -> ExpVal
-    ;[(ast:super (ast:var x) e) (apply-env x e %super)]
+
 (define (value-of exp Δ)
   (match exp
     [(ast:int n) n]
@@ -42,34 +42,38 @@
                                   (setref! (apply-env Δ x) (value-of e Δ)) ;set the value in the store
                                   42)] ; return the 42 value
     ;-------------------------------------------------------------------------
-
     [(ast:self) (apply-env Δ '%self)] ; apply the environment in the '%self class
-    [(ast:send obj-exp method-name args) 
-                            (let* ([args (values-of-exps args Δ)] ; send retira os argumentos e o objeto
-                                [obj (value-of obj-exp Δ)]
-                                [class (find-class (object-class-name obj))])
-                            (apply-method (find-method (object-class-name obj) (ast:var-name method-name))
-                            obj
-                            args
-                            (ast:decl-fields class)))]
+    [(ast:send obj-exp method-name args)
+      (let* ([args (values-of-exps args Δ)] ; send retira os argumentos e o objeto
+             [obj (value-of obj-exp Δ)]
+             [class (find-class (object-class-name obj))])
+        (apply-method (find-method (object-class-name obj) (ast:var-name method-name))
+                      obj
+                      args
+                      (ast:decl-fields class)
+        )
+      )
+    ]
     [(ast:super name args) 
-                            (let* ([args (values-of-exps args Δ)] ; super retira os argumentos e o objeto self
-                                [obj (apply-env Δ '%self)]
-                                [class (find-class (object-class-name obj))])
-                            (apply-method                             ; e acha o método (cadr exp) do objeto super
-                              (find-method (apply-env Δ '%super) (ast:var-name name));tentar só name
-                              obj                                      ; com os argumentos args e o objeto obj
-                              args
-                              (ast:decl-fields class)))]
+      (let* ([args (values-of-exps args Δ)] ; super retira os argumentos e o objeto self
+             [obj (apply-env Δ '%self)]
+             [class (find-class (object-class-name obj))])
+        (apply-method (find-method (apply-env Δ '%super) (ast:var-name name)); e acha o método ( exp) do objeto super
+                      obj                                      ; com os argumentos args e o objeto obj
+                      args
+                      (ast:decl-fields class)
+        )
+      )
+    ]
     [(ast:new (ast:var class-name) args) 
-        (let ([args (values-of-exps args Δ)]
+      (let ([args (values-of-exps args Δ)]
             [obj (new-object class-name)]
             [class (find-class class-name)])        ; usando new-object
-          (let ([this-meth (find-method (object-class-name obj) "initialize")])   ; acha o método initialize do objeto obj 
-            (apply-method this-meth obj args (ast:decl-fields class))
-          )
-          obj ; retornando obj
+        (let  ([this-meth (find-method (object-class-name obj) "initialize")])   ; acha o método initialize do objeto obj 
+              (apply-method this-meth obj args (ast:decl-fields class))
         )
+        obj ; retornando obj
+      )
     ]     
     ;-------------------------------------------------------------------------
     [e (raise-user-error "unimplemented-construction: " e)]
@@ -79,65 +83,55 @@
 (define value-of-program ; Função principal, chamada para avaliar o valor de um programa.
   (lambda (prog)
     (match-define  
-      (ast:prog decls exp) prog)
+      (ast:prog decls exp) prog) ; separa as declarações das expressões
     (empty-store)        ; incializa o store
     (initialize-class-env) ; inicializa o ambiente com object no the-class-env
-    (map (lambda decls
-      (match (car decls) ;map?
-        [(ast:decl (ast:var name) (ast:var super) fields methods) (initialize-class-decl! name super fields methods)])
-    ) decls)
-    (value-of exp the-class-env)
-))
+    (map 
+      (lambda decl
+        (match (car decl) 
+          [(ast:decl (ast:var name) (ast:var super) fields methods)
+            (initialize-class-decl! name super fields methods)
+          ]
+        )
+      ) 
+      decls
+    ) ; para cada estrutura dentro das declarações que corresponder com a estrutura definida em "ast:decl", inicializa a mesma (inclui no ambiente de classes)
+    (value-of exp the-class-env) ; chama "value-of" pra avaliar as expressões dado o ambiente de classes
+  )
+)
 
-
-;;; (for-each teste decls)
-;;; (define teste 
-;;;   (lambda decls
-;;;     (match (car decls) ;map?
-;;;       [(ast:decl (ast:var name) (ast:var super) fields methods) (initialize-class-decl! name super fields methods)])
-;;;   )
-;;; )
-
-; Comportamento de uma lista de expressões, podendo ser vazia. Função auxiliar
+; Comportamento de uma lista de expressões, podendo ser vazia.
 (define values-of-exps
   (lambda (exps env)
-    (map
-     (lambda (exp) (value-of exp env))
-     exps)))
-;------------------------------------
+    (map 
+      (lambda (exp)
+        (value-of exp env)
+      )
+      exps
+    ) ; para cada expressão em "exps", calcula a expressao dado o ambiente "env", através de "value-of"
+  )
+)
 
-; call-by-value
-; proc-val :: Var x Expr x Env -> Proc
-#;(define (proc-val var exp Δ)
-  (lambda (val)
-    (value-of exp (extend-env var (newref val) Δ))))
+; Funções baseadas/retiradas do Capítulo 9 do livro "Essentials of Programming Languages"
 
-; apply-proc :: Proc x ExpVal -> ExpVal  
-#;(define (apply-proc proc val)
-  (proc val))
-
-(define (apply-proc-ref proc val)
-  (proc val #f))
-
-; -------------------------------- Implementação das estruturas e funções da linguagem CLASSES --------------------------------------
-; Seguindo estratégia apresentada no Capítulo 9 do livro "Essentials of Programming Languages", 3ra edição.
-
-; Tipo de dados object, que representa um objeto, que é uma instância de uma classe. Possui nome da classe e campos.
+; Struct de object, que é uma instância de uma classe.
 (struct object (class-name fields)) 
 
-; new-object :: ClassName -> Obj
+
 (define new-object      ; Cria um objeto da classe class-name
   (lambda (class-name)
-    (object             ; Cria um objeto
-      class-name        ; nome da classe
+    (object class-name
       (map
-       (lambda (field-name) ; Campos de dados. cria uma nova referência na memória com o nome dos campos
-         (newref field-name))
-       (ast:decl-fields (find-class class-name)))))) ; Pega os campos da classe com o nome class-name
+        (lambda (field-name) 
+          (newref field-name) ; cria uma nova referência na memória com o nome dos campos
+        )
+        (ast:decl-fields (find-class class-name)) ; Pega os campos da classe com o nome class-name
+      )
+    )
+  )
+) 
 
-; apply-method :: Method x Obj x ListOf(ExpVal) -> ExpVal
 (define (apply-method m self args f) ; Função que aplica o método m do objeto self com os argumentos args, e retorna o valor
-  ;(lambda (m self args)
   (if (ast:method? m) ; Checa se m é método
     (
       let ([vars (map (lambda (x) 

@@ -13,9 +13,7 @@
         (apply-env env svar))))
 
 (define (apply-env env var)
-  (
-    (env var)
-  )
+  (env var)
 )
 
 (define init-env empty-env)

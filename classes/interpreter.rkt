@@ -46,30 +46,30 @@
     [(ast:new (ast:var class-name) args) 
       (let ([args (values-of-exps args Δ)]
             [obj (new-object class-name)]
-            [class (find-class class-name)])        ; usando new-object
-        (let  ([this-meth (find-method (object-class-name obj) "initialize")])   ; acha o método initialize do objeto obj 
+            [class (find-class class-name)]) ; procura a class de nome "class-name"
+        (let  ([this-meth (find-method (object-class-name obj) "initialize")])   ; procura o método initialize do objeto obj
               (apply-method this-meth obj args (ast:decl-fields class))
         )
         obj ; retornando obj
       )
     ]    
-    [(ast:self) (apply-env Δ '%self)] ; apply the environment in the '%self class 
+    [(ast:self) (apply-env Δ '%self)] ; aplica o ambiente na '%self class 
     [(ast:super name args) 
-      (let* ([args (values-of-exps args Δ)] ; super retira os argumentos e o objeto self
+      (let* ([args (values-of-exps args Δ)] ; avalia e pega os argumentos
              [obj (apply-env Δ '%self)]
-             [class (find-class (object-class-name obj))])
-        (apply-method (find-method (apply-env Δ '%super) (ast:var-name name)); e acha o método ( exp) do objeto super
-                      obj                                      ; com os argumentos args e o objeto obj
+             [class (find-class (object-class-name obj))]) ; procura a class de nome "class-name"
+        (apply-method (find-method (apply-env Δ '%super) (ast:var-name name)); procura o método "name" do objeto super
+                      obj                                                    ; e aplica com os argumentos args e o objeto obj
                       args
                       (ast:decl-fields class)
         )
       )
     ]
     [(ast:send obj-exp method-name args)
-      (let* ([args (values-of-exps args Δ)] ; send retira os argumentos e o objeto
+      (let* ([args (values-of-exps args Δ)] ; avalia e pega os argumento o obj
              [obj (value-of obj-exp Δ)]
-             [class (find-class (object-class-name obj))])
-        (apply-method (find-method (object-class-name obj) (ast:var-name method-name))
+             [class (find-class (object-class-name obj))]) ; procura a class de nome "class-name"
+        (apply-method (find-method (object-class-name obj) (ast:var-name method-name)) ; procura o método "method-name" do objeto obj
                       obj
                       args
                       (ast:decl-fields class)

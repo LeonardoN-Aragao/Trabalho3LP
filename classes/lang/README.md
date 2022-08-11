@@ -3,7 +3,7 @@
 
 # Trabalho3LP
 
-## Como jogar
+## Como executar
 
 Para rodar o projeto precisa baixar e instalar:
 
@@ -14,12 +14,25 @@ link para download: https://racket-lang.org/download/
 
 Após instalar adicione nas variaveis de ambientes do sistema para utilizar os comandos de instalação do package no terminal ou pelo programa DrRacket -> File -> Install Package
 
-:exclamation:OBS: Caso necessário baixe a pasta util de https://github.com/lvsreis/dcc019
+OBS: Caso necessário baixe a pasta util de https://github.com/lvsreis/dcc019
 
 ---------------------------------------------------
 
 ## Decisões de projeto
 
-A estratégia para validação da resposta do usuário é a seguinte: Inicialmente, encontra-se todos os acertos completos. Após isso, a partir das listas remanescentes (sem considerar os acertos), é feita uma verificação em cada elemento das duas listas de forma que a cada "match" os elementos são removidos de ambas as listas (evitando encontrar múltiplos acertos parciais para uma só entrada).
+Foi utilizado o struct objeto que é uma instância de uma classe.  
+$ (struct object (class-name fields)) 
 
-Para validar a entrada de cada tentativa do usuário, limpamos inicialmente a entrada (removendo os espaços existentes) e validamos conforme as regras do jogo (de forma que a entrada só seja aceita caso possua tamanho 4 e não possua dígitos de valor fora do alcance entre 1 e 6)
+the-class-env é uma variável global que é iniciada vazia '()
+initialize-class-env! somente inicia o objeto vazio em the-class-env.
+$ "object" (ast:decl  #f #f  '() '()))
+initializa-class-decl! inclui a declaração de cada classe do programa no the-class-env.
+
+
+Algumas das funções utilizadas foram baseadas em funções encontradas no livro EOPL.
+
+Algumas funções básicas foram encontradas e retiradas de documentação do Racket:
+
+- https://docs.racket-lang.org/guide/
+- https://docs.racket-lang.org/reference
+

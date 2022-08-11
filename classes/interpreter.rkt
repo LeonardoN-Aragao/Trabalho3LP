@@ -41,19 +41,19 @@
     [(ast:assign (ast:var x) e) (begin
                                   (setref! (apply-env Δ x) (value-of e Δ)) ;set the value in the store
                                   42)] ; return the 42 value
-    ;-------------------------------------------------------------------------
-    [(ast:self) (apply-env Δ '%self)] ; apply the environment in the '%self class
-    [(ast:send obj-exp method-name args)
-      (let* ([args (values-of-exps args Δ)] ; send retira os argumentos e o objeto
-             [obj (value-of obj-exp Δ)]
-             [class (find-class (object-class-name obj))])
-        (apply-method (find-method (object-class-name obj) (ast:var-name method-name))
-                      obj
-                      args
-                      (ast:decl-fields class)
+
+    ;------------------------------------ Especificos da class -------------------------------------
+    [(ast:new (ast:var class-name) args) 
+      (let ([args (values-of-exps args Δ)]
+            [obj (new-object class-name)]
+            [class (find-class class-name)])        ; usando new-object
+        (let  ([this-meth (find-method (object-class-name obj) "initialize")])   ; acha o método initialize do objeto obj 
+              (apply-method this-meth obj args (ast:decl-fields class))
         )
+        obj ; retornando obj
       )
-    ]
+    ]    
+    [(ast:self) (apply-env Δ '%self)] ; apply the environment in the '%self class 
     [(ast:super name args) 
       (let* ([args (values-of-exps args Δ)] ; super retira os argumentos e o objeto self
              [obj (apply-env Δ '%self)]
@@ -65,19 +65,21 @@
         )
       )
     ]
-    [(ast:new (ast:var class-name) args) 
-      (let ([args (values-of-exps args Δ)]
-            [obj (new-object class-name)]
-            [class (find-class class-name)])        ; usando new-object
-        (let  ([this-meth (find-method (object-class-name obj) "initialize")])   ; acha o método initialize do objeto obj 
-              (apply-method this-meth obj args (ast:decl-fields class))
+    [(ast:send obj-exp method-name args)
+      (let* ([args (values-of-exps args Δ)] ; send retira os argumentos e o objeto
+             [obj (value-of obj-exp Δ)]
+             [class (find-class (object-class-name obj))])
+        (apply-method (find-method (object-class-name obj) (ast:var-name method-name))
+                      obj
+                      args
+                      (ast:decl-fields class)
         )
-        obj ; retornando obj
       )
-    ]     
+    ] 
     ;-------------------------------------------------------------------------
     [e (raise-user-error "unimplemented-construction: " e)]
-    ))
+  )
+)
 
  ; Função principal, chamada para avaliar o valor de um programa.
 (define value-of-program
@@ -132,49 +134,38 @@
 )
 
 ; Função que aplica o método m do objeto self com os argumentos args, e retorna o valor
-(define (apply-method method self args field-list) 
-  (if (ast:method? method) ; Checa se method é método
+(define (apply-method m self args f) 
+  (if (ast:method? m) ; Checa se m é método
     (
-      let (
-            [vars 
-              (map 
-                (lambda (param) 
-                  (ast:var-name param)
-                )
-                (ast:method-params method) 
+      let ([vars (map (lambda (x) 
+            (ast:var-name x)) (ast:method-params m))]                  ; Obtém as informações relevantes do método m
+          [body (ast:method-body m)]
+          [super-name (ast:method-name m)]
+          [fields (map (lambda (x) 
+            (ast:var-name x)) f)])
+        (
+          let ([values (map newref args)]; Obtém o valor do corpo do método no novo ambiente, criado com extend env, com a variável vars, e as referências na memória dos argumentos
+              [env (extend-env-with-self-and-super ; Estende o ambiente com o objeto atual, e com a classe super-name que possui o método
+            self super-name
+              (foldl (lambda(var-value empty-env)
+                (extend-env (first var-value) (second var-value) empty-env)) empty-env (append fields (object-fields self))
               )
-            ] ; parâmetros do método
-            [body (ast:method-body method)] ; corpo do método
-            [super-name (ast:method-name method)] ; nome do método
-            [fields 
-              (map
-                (lambda (field) 
-                  (ast:var-name field)
-                )
-                field-list
+              )]
+            )
+            (value-of body 
+              (foldl (lambda(var-value env)
+                (extend-env (first var-value) (second var-value) env)) env (append vars values)
               )
-            ] ; campos do método
-          ) ; Obtém as informações relevantes do método
-      (value-of body 
-        (multiple-extend-env vars (map newref args) ; Obtém o valor do corpo do método no novo ambiente, criado com extend env, com a variável vars, e as referências na memória dos argumentos
-          (extend-env-with-self-and-super self super-name; Estende o ambiente com o objeto atual, e com a classe super-name que possui o método
-            (multiple-extend-env fields (object-fields self) empty-env)
-          )
+            )
         )
       )
-    ) ; executa se true
-    (display "method não é método\n") ; false
+      (display " não é método\n")
   )
 )
 
-(define (multiple-extend-env vars values env)
-  (foldl (lambda(var-value env)
-    (extend-env (first var-value) (second var-value) env)) env (append vars values)
-  )
-)
-
-; função faz a ligação de %self e %super com um objeto e um nome de classe, respectivamente
-(define (extend-env-with-self-and-super self super-name saved-env) 
+;------------------------------------
+; Função extend-env-with-self-and-super, retirada do livro Essentials of Programming Languages
+(define (extend-env-with-self-and-super self super-name saved-env) ; função faz a ligação de %self e %super com um objeto e um nome de classe, respectivamente
   (lambda (svar)
     (case svar
           ((%self) self)
@@ -184,11 +175,10 @@
   )
 )
 
-; Ambiente de classe vazio, que será inicializado pela função initialize-class-env!
-(define the-class-env '()) 
+; Ambiente de classe vazio, que será inicializado pela função initialize-class-env! com as classes declaradas no programa
+(define the-class-env '()) ;object object null 
 
-; inicializa o ambiente de classes the-class-env
-(define initialize-class-env 
+(define initialize-class-env ; inicializa o ambiente de classes the-class com os objetos correspondentes às declarações de classe do programa
   (lambda ()
     (set! the-class-env
       (list
@@ -220,7 +210,7 @@
   )
 )
 
-;Concatena as listas em uma lista só
+; Concatena as listas em uma lista só
 (define (append l1 l2)
   (if (or (null? l1) (null? l2))
       '()
@@ -228,7 +218,7 @@
             (append  (cdr l1) (cdr l2))))
 )
 
-; Adiciona a classe class no the-class-env
+; Função que adiciona a class no ambiente the-class-env
 (define add-to-class-env!     
   (lambda (class-name class)
     (set! the-class-env       ; o the-class-env vai possuir listas com dois elementos, o primeiro sendo o nome da classe, o segundo a classe em si
@@ -240,7 +230,7 @@
   )
 )
 
-; Procura e retorna (se existir) a classe de nome "name" no the-class-env
+; Procura e retorna a classe de nome "name" no the-class-env, caso não existe, da display "Classe desconhecida"
 (define find-class    
   (lambda (name)
     (let (
@@ -261,8 +251,8 @@
   )
 )
 
- ; cria novo identificador após merge de diferentes classes com métodos com mesmo nome. Retirada do livro EOPL      
-(define fresh-identifier
+; Função para criar novo identificador ao "mergear" os campos de classes diferentes com métodos com mesmo nome          
+(define fresh-identifier ; Retirada do livro
   (let ((sn 0))          
     (lambda (identifier)  
       (set! sn (+ sn 1))
@@ -272,8 +262,8 @@
         "%"             ; % não pode aparecer em um identificador de input
         (number->string sn))))))
 
- ; Concatena a lista de nomes de campos da classe superior com a atual
-(define append-field-names
+; Concatena a lista de nomes de campos da classe superior com a atual
+(define append-field-names 
   (lambda (super-fields new-fields)
     (cond
       ((null? super-fields) new-fields) ; se não houver campos na classe superior, retorna simplesmente os nomes de campos novos
@@ -290,9 +280,8 @@
   )
 )
 
-; MethodEnv = Listof(List(MethodName, Method))
-; find-method :: Sym x Sym -> Method
-(define find-method                ; encontra um método de nome name em uma classe c-name
+; Encontra um método de nome name em uma classe c-name
+(define find-method                
   (lambda (c-name name)
     (let ([this-class (find-class c-name)])   ; primeiro procura a classe
       (if (void? this-class) (display "Classe não encontrada\n")
@@ -311,8 +300,8 @@
               )
 )))
 
-; method-decls->method-env :: Listof(MethodDecl) x ClassName -> MethodEnv
-(define method-decls->method-env ; retorna o ambiente de métodos correspondente às declarações de métodos da classe que está sendo declarada no programa
+; Retorna o ambiente de métodos correspondente às declarações de métodos da classe que está sendo declarada no programa
+(define method-decls->method-env 
   (lambda (m-decls super-name)  ; m-decls: declaração de métodos, super-name: nome de class, field-names: nome dos campos da classe
     (map
       (lambda (m-decl)  ; para cada declaração de método, pega as informações relevantes do método (method-name, vars e body)
@@ -324,11 +313,10 @@
   )
 ) ; aplica a função em cada uma das declarações de método atuais
 
-; merge-method-envs :: MethodEnv x MethodEnv -> MethodEnv     
-(define merge-method-envs ; Função para juntar ambientes de métodos de duas classes
+; Função para juntar ambientes de métodos das duas classes
+(define merge-method-envs 
   (lambda (super-m-env new-m-env) ; Simplesmente concatena (append) o novo ambiente com o antigo (da classe superior). Dessa maneira, os métodos da classe nova, que estende a superior
-    (zip new-m-env super-m-env))) ; ficam na frente. Quando a função find-method procura um método, vai pegar usando a função assq o primeiro da lista, ou seja, o da classe mais
-                                     ; baixa na hierarquia (o mais novo). Dessa forma lida-se com duas classes com métodos de mesmo nome, uma das quais estende a outra.
+    (zip new-m-env super-m-env))) ; ficam na frente. 
 
 (define (zip l1 l2)
   (cond
